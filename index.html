@@ -1,4 +1,5 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>سباق الحروف</title>
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>🕯️📚 سباق الحروف</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕯️</text></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -27,8 +28,40 @@ small{color:var(--mu)}
 .v{font-size:20px;text-align:center;margin:8px 0}
 .q{font-size:19px;line-height:1.6;text-align:center}
 .hd{align-items:center}.sc{display:flex;gap:4px;align-items:center}.sc input{width:70px;text-align:center;margin:0;padding:4px}.sc button{padding:2px 10px}
+
+:root{--c0:#14b8a6;--c1:#f59e0b;--c2:#ec4899;--c3:#8b5cf6}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(45,212,191,.55)}50%{box-shadow:0 0 0 9px rgba(45,212,191,0)}}
+@keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes fall{0%{transform:translateY(-30px) rotate(0);opacity:1}100%{transform:translateY(105vh) rotate(540deg);opacity:.9}}
+@keyframes warn{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.logo{display:inline-block;animation:floaty 3s ease-in-out infinite;font-size:30px}
+.bounce{display:inline-block;animation:floaty 1.2s ease-in-out infinite}
+.box{animation:pop .35s}
+button{transition:transform .12s,background .2s}
+button:active:not(:disabled){transform:scale(.94)}
+.c.av{animation:pulse 1.6s infinite;border-color:var(--pr)}
+.c.av:hover{transform:scale(1.12)}
+.c.s1{animation:pop .4s}.c.s2{animation:shake .4s}
+.bd.on{animation:pulse 2s infinite}
+.bd.t0{border-top:5px solid var(--c0)}.bd.t1{border-top:5px solid var(--c1)}.bd.t2{border-top:5px solid var(--c2)}.bd.t3{border-top:5px solid var(--c3)}
+.big{font-size:64px;font-weight:700;text-align:center;line-height:1.1;margin:8px 0}
+.big.warn{color:var(--bad);animation:warn .6s infinite}
+.big2{font-size:24px}
+.bar{height:12px;border-radius:8px;background:var(--ln);overflow:hidden;margin:6px 0}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--pr),#f59e0b);transition:width 1s linear}
+.lv{font-size:18px;padding:14px 22px;color:#fff;border:0}
+.lv.e{background:#16a34a}.lv.h{background:#dc2626}
+.turn{border-radius:14px;padding:12px;text-align:center;font-size:20px;color:#fff;margin-bottom:10px;animation:pop .4s}
+.st{text-align:center;font-size:19px;padding:10px;border-radius:12px;background:var(--bg);margin:6px 0}
+.st.on{background:var(--hl);color:var(--tx);animation:pulse 1.5s infinite}
+.st.okc{background:var(--ok);color:#fff;animation:pop .4s}.st.badc{background:var(--bad);color:#fff;animation:shake .4s}
+.sbr{display:flex;justify-content:space-between;padding:6px 8px;border-radius:8px}
+.sbr.cur{background:var(--hl);color:var(--tx);font-weight:700}
+.cf{position:fixed;top:-30px;animation:fall 2.4s linear forwards;pointer-events:none;z-index:99}
 </style></head><body>
-<h1>🔤 سباق الحروف</h1>
+<h1><span class="logo">🕯️📚</span> سباق الحروف</h1>
 <div id="q"></div><div id="g"></div><div id="tb" class="row"></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -45,11 +78,12 @@ function tbNext(){S.tb=(S.tb+1)%TB.length;S.rv=false;R()}
 function tbWin(i){S.win=i;S.end=true;S.ph='end';R()}
 function pickL(i){S.l=i;S.ph='lvl';R()}
 function ask(d){
- S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.tm=20;clearInterval(T);R();
- startTimer();
+ S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;clearInterval(T);R();
 }
-function rev(){clearInterval(T);S.rv=true;R()}
-function jd(ok){clearInterval(T);S.ok=ok;if(ok)S.sc[S.t]+=S.d?300:100;S.cs[S.t][S.l]=ok?1:2;S.ph='res';R()}
+function rev(){clearInterval(T);S.run=false;S.rv=true;R()}
+function tmStart(){if(S.ph!=='q'||S.rv)return;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
+function tick(){try{DB.doc('rooms/main').update({tm:S.tm,run:!!S.run}).catch(()=>{})}catch(e){}}
+function jd(ok){clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;burst(ok?'🎉':'😬');beep(ok?880:220,300);S.ok=ok;if(ok)S.sc[S.t]+=S.d?300:100;S.cs[S.t][S.l]=ok?1:2;S.ph='res';R()}
 function adj(i,v){S.sc[i]+=v;R()}
 function setS(i,v){S.sc[i]=parseInt(v)||0;R()}
 function nxt(){
@@ -58,20 +92,25 @@ function nxt(){
 }
 function R(){
  let q='<div class="box">',p=S.names[S.t];
- if(S.ph=='pick')q+=`<div class="v"><b>دور ${E(p)}</b></div><div class="q">اختر حرفاً من لوحتك · باقي ${10-S.pk[S.t]} اختيارات</div>`;
- if(S.ph=='lvl')q+=`<div class="q">${E(p)} اختار الحرف «${L[S.l]}»</div><div class="row"><button class="p" onclick="ask(0)">سهل · 100</button><button class="p" onclick="ask(1)">صعب · 300</button><button onclick="S.ph='pick';R()">رجوع</button></div>`;
- if(S.ph=='q')q+=`<small>${E(p)} · حرف «${L[S.l]}» · ${S.d?'صعب 300':'سهل 100'}</small><div class="q">${E(S.cur[0])}</div>`+(S.rv?`<div class="v">${S.to?'⏰ انتهى الوقت':''}</div><div class="v">الإجابة: <b>${E(S.cur[1].split('|')[0])}</b></div><div class="row"><button class="p" onclick="jd(true)">✅ صح</button><button onclick="jd(false)">❌ غلط</button></div>`:`<div class="v">⏱ <span id="tm" style="${S.tm<=5?'color:var(--bad)':''}">${S.tm}</span></div><div class="row"><button class="p" onclick="rev()">اكشف الإجابة</button></div>`);
- if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+(S.d?300:100):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b></div><div class="row"><button class="p" onclick="nxt()">التالي</button></div>`;
+  if(S.ph=='pick')q+=`<div class="v">🎯 دور <b>${AV[S.t%4]} ${E(p)}</b></div><div class="q">ينتظر اختيار الحرف · باقي ${10-S.pk[S.t]} اختيارات</div>`;
+ if(S.ph=='lvl')q+=`<div class="q">${AV[S.t%4]} ${E(p)} اختاروا الحرف «${L[S.l]}»</div><div class="row"><button class="lv e" onclick="ask(0)">🟢 سهل · 100</button><button class="lv h" onclick="ask(1)">🔴 صعب · 300</button><button onclick="S.ph='pick';R()">رجوع</button></div>`;
+ if(S.ph=='q'){
+  q+=`<small>${AV[S.t%4]} ${E(p)} · حرف «${L[S.l]}» · ${S.d?'🔴 صعب 300':'🟢 سهل 100'}</small><div class="q">${E(S.cur[0])}</div>`;
+  if(S.rv)q+=`<div class="v">${S.to?'⏰ انتهى الوقت':''}</div><div class="v">الإجابة: <b>${E(S.cur[1].split('|')[0])}</b></div><div class="row"><button class="lv e" onclick="jd(true)">✅ صح</button><button class="lv h" onclick="jd(false)">❌ غلط</button></div>`;
+  else if(S.run)q+=`<div class="big${S.tm<=5?' warn':''}">⏱ <span id="tm">${S.tm}</span></div><div class="bar"><i id="tb2" style="width:${S.tm/30*100}%"></i></div><div class="row"><button onclick="rev()">اكشف الإجابة</button></div>`;
+  else q+=`<div class="row"><button class="lv e" style="background:var(--pr)" onclick="tmStart()">▶️ ابدأ المؤقت (30 ثانية)</button></div><small>اقرأ السؤال للفريق ثم اضغط بدء المؤقت</small><div class="row"><button onclick="rev()">اكشف الإجابة</button></div>`;
+ }
+ if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+(S.d?300:100):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b></div><div class="row"><button class="lv e" style="background:var(--pr)" onclick="nxt()">التالي ⏭️</button></div>`;
  if(S.ph=='tie')q+=`<div class="v"><b>⚖️ تعادل! سؤال فاصل</b></div><div class="q">${TB[S.tb][0]}</div><small>الأقرب إلى الرقم الصحيح يفوز</small>`+(S.rv?`<div class="v">الإجابة: <b>${TB[S.tb][1]}</b></div><div class="row">`+S.tie.map(i=>`<button class="p" onclick="tbWin(${i})">🏆 ${E(S.names[i])}</button>`).join('')+`<button onclick="tbNext()">سؤال آخر</button></div>`:`<div class="row"><button class="p" onclick="tbRev()">اكشف الإجابة</button></div>`);
  if(S.ph=='end'){const m=Math.max(...S.sc),w=S.win!=null?[S.names[S.win]]:S.names.filter((_,i)=>S.sc[i]==m);q+=`<div class="v"><b>🏆 ${w.length>1?'تعادل بين: ':'الفائز: '}${w.map(E).join('، ')} (${m} نقطة)</b></div><div class="row"><button class="p" onclick="setup()">لعبة جديدة</button></div>`}
  $('q').innerHTML=kickBox()+hostBar()+q+'</div>';push();save();
- $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${E(nm)}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const s=S.cs[i][k];return `<button class="c s${s}" ${i==S.t&&S.ph=='pick'&&!s?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
+ $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return `<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
 }
 
 let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,teams:[],err:'',kicked:[],saved:null};
 const TEAMMODE=location.hash==='#team';
 const BX=h=>`<div class="box">${h}</div>`;
-function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/main').set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,ts:Date.now()}).catch(()=>{})}catch(e){}}
+function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/main').set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,ts:Date.now()}).catch(()=>{})}catch(e){}}
 function setup(){
  clearInterval(T);S=null;LB={session:0,teams:[],err:'',kicked:[],saved:null};
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];
@@ -102,13 +141,24 @@ function hostLobby(){
 function hostStart(){
  const tm=LB.teams;if(tm.length<2||!tm.every(t=>t.ready))return;
  n=tm.length;
- S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:20,room:'main'};
+ S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main'};
  gameSub();R();
 }
+const AV=['🦅','🐯','🦁','🐺'],CL=['#14b8a6','#f59e0b','#ec4899','#8b5cf6'];
+function burst(e){try{for(let i=0;i<26;i++){const d=document.createElement('span');d.className='cf';d.textContent=e;d.style.left=(Math.random()*100)+'vw';d.style.animationDelay=(Math.random()*.7)+'s';d.style.fontSize=(20+Math.random()*22)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),3400)}}catch(x){}}
+function beep(f,d){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;window._ac=window._ac||new A();const o=window._ac.createOscillator(),g=window._ac.createGain();o.frequency.value=f;o.type='sine';g.gain.value=.07;o.connect(g);g.connect(window._ac.destination);o.start();o.stop(window._ac.currentTime+d/1000)}catch(x){}}
+function vib(p){try{if(navigator.vibrate)navigator.vibrate(p)}catch(x){}}
 let KM=-1;
 function startTimer(){
  clearInterval(T);
- T=setInterval(()=>{S.tm--;if(S.tm<=0){clearInterval(T);S.to=true;S.rv=true;R()}else{const e=$('tm');if(e){e.textContent=S.tm;e.style.color=S.tm<=5?'var(--bad)':''}}},1000);
+ T=setInterval(()=>{
+  S.tm--;
+  if(S.tm<=0){clearInterval(T);S.run=false;S.to=true;S.rv=true;S.tm=0;beep(300,500);R();return}
+  const e=$('tm');if(e){e.textContent=S.tm;if(e.parentElement)e.parentElement.className='big'+(S.tm<=5?' warn':'')}
+  const b=$('tb2');if(b)b.style.width=(S.tm/30*100)+'%';
+  if(S.tm<=5)beep(880,100);
+  tick();
+ },1000);
 }
 function kickNames(){return S?S.names:LB.teams.map(t=>t.name||'')}
 function kickAsk(i){KM=i;if(S)R();else hostLobby()}
@@ -155,7 +205,7 @@ function hostResume(){
  let o;try{o=JSON.parse(sv.d.st)}catch(e){LB.saved=null;return hostLobby()}
  S=o;LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
- if(S.ph==='q'&&!S.rv&&!S.to&&S.tm>0)startTimer();
+ if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
  R();
 }
 function hostRefresh(){
@@ -190,10 +240,10 @@ function teamRender(){
  if(r.mode==='game')return teamPlay();
  if(!me||me.session!==r.session){
   if(g.querySelector('#tn'))return;
-  g.innerHTML=BX('<b>تسجيل فريق</b><input id="tn" placeholder="اسم المجموعة"><input id="tm2" placeholder="أسماء الأعضاء (بفاصلة)"><div class="row"><button class="p" onclick="teamReg()">سجّل</button></div><small id="te"></small>');
+  g.innerHTML=BX('<div class="v">🕯️📚 <b>تسجيل فريق</b></div><input id="tn" placeholder="اسم المجموعة"><input id="tm2" placeholder="أسماء الأعضاء (بفاصلة)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamReg()">سجّل</button></div><small id="te"></small>');
   return;
  }
- g.innerHTML=BX(`<div class="v"><b>${E(me.name||'')}</b></div><small>${E(me.members||'')}</small><div class="v">${me.ready?'✅ أنتم جاهزون — بانتظار بقية الفرق':'⏳ تم التسجيل — اضغطوا جاهز عندما تكونون مستعدين'}</div><div class="row"><button class="p" onclick="teamReady()">${me.ready?'إلغاء الجاهزية':'جاهز ✅'}</button></div>`);
+ g.innerHTML=BX(`<div class="v"><b>${E(me.name||'')}</b></div><small>${E(me.members||'')}</small><div class="v">${me.ready?'✅ أنتم جاهزون — بانتظار بقية الفرق':'⏳ تم التسجيل — اضغطوا جاهز عندما تكونون مستعدين'}</div><div class="row"><button class="p" onclick="teamReady()" style="font-size:18px;padding:14px 26px">${me.ready?'إلغاء الجاهزية':'جاهز ✅'}</button></div>`);
 }
 async function teamReg(){
  const nm=$('tn').value.trim(),mm=$('tm2').value.trim(),te=$('te');
@@ -203,22 +253,40 @@ async function teamReg(){
 function teamReady(){if(!TS.me)return;DB.doc('teams/'+DB.uid).update({ready:!TS.me.ready}).catch(()=>{})}
 function teamPlay(){
  const s=TS.room,g=$('g'),i=(s.uids||[]).indexOf(DB.uid);
- if(i<0){g.innerHTML=BX('اللعبة بدأت وفريقكم غير مسجّل فيها. انتظروا اللعبة القادمة.');return}
- const my=s.t===i,nm=s.names||[],sc=s.sc||[];
- let msg='';
- if(s.end)msg='🏁 انتهت اللعبة';
- else if(s.ph==='tie')msg='⚖️ سؤال فاصل عند المنظم';
- else if(!my)msg='الدور على '+E(nm[s.t]||'')+' — اسمعوا السؤال من المنظم';
- else if(s.ph==='pick')msg='دوركم: اختاروا حرفاً';
- else if(s.ph==='lvl')msg='اختاروا مستوى السؤال';
- else if(s.ph==='q')msg='السؤال عند المنظم — جاوبوا بصوتكم';
- else if(s.ph==='res')msg=s.ok?'✅ إجابتكم صحيحة':'❌ إجابتكم غلط';
- let h=`<div class="box"><div class="v"><b>${E(nm[i]||'')}</b> · ${sc[i]||0} نقطة</div><div class="v">${msg}</div>`;
- if(my&&s.ph==='lvl')h+=`<div class="row"><button class="p" onclick="tpick('d',null,0)">سهل · 100</button><button class="p" onclick="tpick('d',null,1)">صعب · 300</button></div>`;
- h+=`<small id="te">${E(TS.err)} متبقي ${10-((s.pk||[])[i]||0)} اختيارات</small></div>`;
+ if(i<0){g.innerHTML=BX('اللعبة بدأت وفريقكم غير مسجّل فيها. انتظروا اللعبة القادمة.');TS.hasT=false;return}
+ const nm=s.names||[],sc=s.sc||[],my=s.t===i,ci=i%4;
+ const key=JSON.stringify([s.t,s.ph,s.sc,s.pk,s.cs,s.l,s.d,s.ok,s.end,!!s.run,!!s.rv,!!s.to,s.rs,s.names,s.win]);
+ const first=TS.k===undefined;
+ if(!first){
+  if(s.rs&&s.rs!==TS.rs){burst(s.ok?'🎉':'😬');beep(s.ok?880:220,300);if(s.t===i)vib(s.ok?[100,50,100]:[300])}
+  if(my&&s.ph==='pick'&&TS.kk!==s.t+'|pick'){vib([150,80,150]);beep(660,150)}
+  if(s.end&&!TS.endd){burst('🏆');beep(990,400)}
+ }
+ TS.rs=s.rs;TS.kk=s.t+'|'+s.ph;TS.endd=!!s.end;
+ if(TS.k===key&&TS.hasT&&$('ttm')){
+  $('ttm').textContent=s.tm;const b=$('tbar');if(b)b.style.width=(s.tm/30*100)+'%';
+  const w=$('tbig');if(w)w.className='big'+(s.tm<=5?' warn':'');
+  if(s.tm<=5&&s.tm>0&&s.tm!==TS.lt)beep(880,90);TS.lt=s.tm;return;
+ }
+ TS.k=key;TS.hasT=false;
+ const cur=E(nm[s.t]||''),ca=AV[(s.t||0)%4];
+ let st='';
+ if(s.end){const m=Math.max(...sc),w=s.win>=0?[s.win]:nm.map((_,j)=>j).filter(j=>sc[j]===m);st=`<div class="st big2 on">🏆 ${w.length>1?'تعادل':'الفائز'}: ${w.map(j=>AV[j%4]+' '+E(nm[j])).join('، ')}</div>`}
+ else if(s.ph==='tie')st='<div class="st on">⚖️ سؤال فاصل — اسمعوا المنظم</div>';
+ else if(s.ph==='pick')st=my?'<div class="st on">🎯 دوركم! اختاروا حرفاً من لوحتكم</div>':`<div class="st">👀 الدور على ${ca} ${cur} — يختارون حرفاً</div>`;
+ else if(s.ph==='lvl')st=my?`<div class="st on">اختاروا مستوى السؤال للحرف «${L[s.l]}»</div><div class="row"><button class="lv e" onclick="tpick('d',null,0)">🟢 سهل · 100</button><button class="lv h" onclick="tpick('d',null,1)">🔴 صعب · 300</button></div>`:`<div class="st">${ca} ${cur} اختاروا الحرف «${L[s.l]}» — بانتظار المستوى…</div>`;
+ else if(s.ph==='q'){
+  const lv=s.d?'🔴 صعب':'🟢 سهل',hd=`<div class="st">${ca} ${cur} · حرف «${L[s.l]}» · ${lv}</div>`;
+  if(s.rv)st=hd+`<div class="st">${s.to?'⏰ انتهى الوقت!':'🔍 المنظم يكشف الإجابة…'}</div>`;
+  else if(s.run){TS.hasT=true;st=hd+`<div id="tbig" class="big${s.tm<=5?' warn':''}">⏱ <span id="ttm">${s.tm}</span></div><div class="bar"><i id="tbar" style="width:${s.tm/30*100}%"></i></div>`}
+  else st=hd+'<div class="st on"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم… سيبدأ الوقت قريباً</div>';
+ }
+ else if(s.ph==='res')st=`<div class="st ${s.ok?'okc':'badc'}">${s.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة'} — ${ca} ${cur}</div>`;
  const row=(s.cs&&s.cs[i])||'0'.repeat(28),on=my&&s.ph==='pick';
- h+=`<div class="bd${on?' on':''}"><div class="gr">`+L.map((c,k)=>{const v=row[k];return `<button class="c s${v}" ${on&&v==='0'?`onclick="tpick('l',${k})"`:'disabled'}>${c}</button>`}).join('')+'</div></div>';
- h+=`<div class="box"><small>${nm.map((n2,j)=>E(n2)+': '+(sc[j]||0)).join(' · ')}</small></div>`;
+ let h=`<div class="turn" style="background:${CL[ci]}">${AV[ci]} ${E(nm[i]||'')} · <b>${sc[i]||0}</b> نقطة</div>`;
+ h+=`<div class="box">${st}<small id="te">${E(TS.err)} متبقي ${10-((s.pk||[])[i]||0)} اختيارات</small></div>`;
+ h+=`<div class="bd t${ci}${on?' on':''}"><div class="gr">`+L.map((c,k)=>{const v=row[k];return `<button class="c s${v}${on&&v==='0'?' av':''}" ${on&&v==='0'?`onclick="tpick('l',${k})"`:'disabled'}>${c}</button>`}).join('')+'</div></div>';
+ h+='<div class="box">'+nm.map((n2,j)=>`<div class="sbr${j===s.t&&!s.end?' cur':''}"><span>${AV[j%4]} ${E(n2)}</span><b>${sc[j]||0}</b></div>`).join('')+'</div>';
  g.innerHTML=h;
 }
 async function tpick(kind,l,d){
@@ -236,5 +304,5 @@ BANK.forEach(x=>{const k=x.s+'|'+x.l+'|'+x.d;(BK[k]=BK[k]||[]).push([x.q,x.a])})
   au.signInAnonymously().then(c=>{DB.uid=c.user.uid;if(TEAMMODE)teamStart();else if(S&&S.room){gameSub();push()}else hostInit()}).catch(e=>{$('g').innerHTML=BX('تعذّر الاتصال بقاعدة البيانات: '+E(String((e&&e.code)||e)))});
  }catch(e){}
 })();
-if(TEAMMODE){$('g').innerHTML='<div class="box">⏳ جاري الاتصال…</div>';$('tb').innerHTML='<button onclick="teamRefresh()">🔄 تحديث</button>'}else{setup()}
+if(TEAMMODE){$('g').innerHTML='<div class="box">⏳ جاري الاتصال…</div>';$('tb').innerHTML=''}else{setup()}
 </script></body></html>
