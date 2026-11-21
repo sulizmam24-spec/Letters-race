@@ -82,7 +82,7 @@ function ask(d){
 }
 function rev(){clearInterval(T);S.run=false;S.rv=true;R()}
 function tmStart(){if(S.ph!=='q'||S.rv)return;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
-function tick(){try{DB.doc('rooms/main').update({tm:S.tm,run:!!S.run}).catch(()=>{})}catch(e){}}
+function tick(){try{DB.doc('rooms/'+LB.rid).update({tm:S.tm,run:!!S.run}).catch(()=>{})}catch(e){}}
 function jd(ok){clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;burst(ok?'🎉':'😬');beep(ok?880:220,300);S.ok=ok;if(ok)S.sc[S.t]+=S.d?300:100;S.cs[S.t][S.l]=ok?1:2;S.ph='res';R()}
 function adj(i,v){S.sc[i]+=v;R()}
 function setS(i,v){S.sc[i]=parseInt(v)||0;R()}
@@ -107,37 +107,50 @@ function R(){
  $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return `<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
 }
 
-let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,teams:[],err:'',kicked:[],saved:null};
-const TEAMMODE=location.hash==='#team';
+let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,rid:'',teams:[],err:'',kicked:[],saved:null};
+const TEAMMODE=location.hash.indexOf('#team')===0;
+TS.rid=(location.hash.split('=')[1]||'').toUpperCase();
 const BX=h=>`<div class="box">${h}</div>`;
-function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/main').set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,ts:Date.now()}).catch(()=>{})}catch(e){}}
+function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,ts:Date.now()}).catch(()=>{})}catch(e){}}
 function setup(){
  clearInterval(T);if(S)clearInterval(S.pp);clearInterval(LB.poll);S=null;LB={session:0,teams:[],err:'',kicked:[],saved:null};
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];
  $('q').innerHTML='';hostLobby();
 }
-function hostOpen(){
+function newRid(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<6;i++)r+=a[Math.floor(Math.random()*a.length)];return r}
+function hostOpen(tries){
+ tries=tries||0;
  if(!DB||!DB.uid){LB.err='الاتصال غير جاهز، جرّب بعد لحظة';return hostLobby()}
- const ses=Date.now();
- DB.doc('rooms/main').set({host:DB.uid,session:ses,mode:'lobby',kicked:[],ts:Date.now()}).then(()=>{LB.session=ses;LB.err='';LB.kicked=[];LB.saved=null;DB.doc('hostsave/main').set({host:DB.uid,session:0,kicked:[],st:'',ts:Date.now()}).catch(()=>{});lbSub();hostLobby()}).catch(e=>{LB.err='ما قدرت أفتح التسجيل: '+(e&&e.code||'');hostLobby()});
+ const ses=Date.now(),rid=newRid();
+ DB.doc('rooms/'+rid).set({host:DB.uid,session:ses,mode:'lobby',kicked:[],ts:Date.now()}).then(()=>{
+  LB.rid=rid;LB.session=ses;LB.err='';LB.kicked=[];LB.saved=null;
+  DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:rid,session:0,kicked:[],st:'',ts:Date.now()}).catch(()=>{});
+  lbSub();hostLobby();
+ }).catch(e=>{if(tries<3)return hostOpen(tries+1);LB.err='ما قدرت أفتح التسجيل: '+(e&&e.code||'');hostLobby()});
+}
+function teamLink(){return location.href.split('#')[0]+'#team='+LB.rid}
+function copyLink(){
+ const l=teamLink();
+ try{navigator.clipboard.writeText(l).then(()=>{const b=$('cpb');if(b)b.textContent='✅ تم النسخ'}).catch(()=>{try{const i=$('lk');i.select();document.execCommand('copy')}catch(e){}})}
+ catch(e){try{const i=$('lk');i.select();document.execCommand('copy')}catch(x){}}
 }
 function lbApply(sn,force){
- const list=sn.docs.map(d=>Object.assign({id:d.id},d.data())).filter(t=>t.session===LB.session&&!(LB.kicked||[]).includes(t.id)).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(0,4);
+ const list=sn.docs.map(d=>Object.assign({id:d.id},d.data())).filter(t=>t.room===LB.rid&&t.session===LB.session&&!(LB.kicked||[]).includes(t.id)).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(0,4);
  const sg=JSON.stringify(list.map(t=>[t.id,t.name,t.members,!!t.ready]));
  if(sg!==LB.sig||force){LB.sig=sg;LB.teams=list;if(!S)hostLobby()}
 }
 function lbSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(LB.poll);
- try{unsub.push(DB.collection('teams').onSnapshot(sn=>lbApply(sn),e=>{LB.err='تعذّر قراءة الفرق: '+(e&&e.code||'');if(!S)hostLobby()}))}catch(e){}
- LB.poll=setInterval(()=>{if(S||document.hidden)return;try{DB.collection('teams').get().then(sn=>lbApply(sn)).catch(()=>{})}catch(e){}},3000);
+ try{unsub.push(DB.collection('teams').where('room','==',LB.rid).onSnapshot(sn=>lbApply(sn),e=>{LB.err='تعذّر قراءة الفرق: '+(e&&e.code||'');if(!S)hostLobby()}))}catch(e){}
+ LB.poll=setInterval(()=>{if(S||document.hidden)return;try{DB.collection('teams').where('room','==',LB.rid).get().then(sn=>lbApply(sn)).catch(()=>{})}catch(e){}},3000);
 }
 function hostLobby(){
  const tm=LB.teams,all=tm.length>=2&&tm.every(t=>t.ready);
  let h=kickBox()+savedBox()+'<b>المنظم</b>';
  if(!DB||!DB.uid)h+='<div class="v">⏳ جاري الاتصال بقاعدة البيانات…</div>';
- else if(!LB.session)h+='<div class="row"><button class="p" onclick="hostOpen()">فتح التسجيل للفرق</button></div><small>بعد الفتح يدخل كل فريق من رابط الفريق، يسجّل ويضغط «جاهز».</small>';
+ else if(!LB.session)h+='<div class="row"><button class="p" onclick="hostOpen()">فتح التسجيل للفرق</button></div><small>بعد الفتح يظهر لك رابط خاص بغرفتك، ترسله للفرق ويسجّل ويضغط «جاهز».</small>';
  else{
-  h+=`<div class="v">الفرق المسجّلة (${tm.length}/4)</div>`;
+  h+=`<div class="v">🔗 رابط فريقك (أرسله للاعبين)</div><input id="lk" readonly value="${E(teamLink())}" onclick="this.select()"><div class="row"><button id="cpb" onclick="copyLink()">📋 انسخ الرابط</button></div><div class="v">الفرق المسجّلة (${tm.length}/4)</div>`;
   h+=tm.length?tm.map((t,ti)=>`<div class="row"><span>${t.ready?'✅':'⏳'} <b onclick="kickAsk(${ti})" style="cursor:pointer;text-decoration:underline dotted">${E(t.name||'')}</b></span><small>${E(t.members||'')}</small></div>`).join(''):'<small>بانتظار تسجيل الفرق…</small>';
   h+=`<div class="row"><button class="p" ${all?'':'disabled'} onclick="hostStart()">ابدأ اللعبة</button></div><small>${all?'كل الفرق جاهزة':'تبدأ عندما يسجّل فريقان أو أكثر ويضغط الجميع «جاهز»'}</small>`;
  }
@@ -179,7 +192,7 @@ function kickDo(){
  if(!S){
   const t=LB.teams[i];if(!t)return hostLobby();
   LB.kicked=(LB.kicked||[]).concat([t.id]);LB.teams=LB.teams.filter(x=>x.id!==t.id);
-  try{DB.doc('rooms/main').update({kicked:LB.kicked}).catch(()=>{})}catch(e){}
+  try{DB.doc('rooms/'+LB.rid).update({kicked:LB.kicked}).catch(()=>{})}catch(e){}
   return hostLobby();
  }
  const u=S.uids[i];if(!u)return R();
@@ -195,10 +208,10 @@ function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">�
 function save(){
  if(!DB||!DB.uid||!S||!S.room)return;
  const o={};Object.keys(S).forEach(k=>{if(k!=='sq'&&k!=='ini'&&k!=='pp')o[k]=S[k]});
- try{DB.doc('hostsave/main').set({host:DB.uid,session:LB.session,kicked:LB.kicked||[],st:JSON.stringify(o),ts:Date.now()}).catch(()=>{})}catch(e){}
+ try{DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:LB.rid,session:LB.session,kicked:LB.kicked||[],st:JSON.stringify(o),ts:Date.now()}).catch(()=>{})}catch(e){}
 }
 function hostInit(){
- try{DB.doc('hostsave/main').get().then(sn=>{
+ try{DB.doc('hostsave/'+DB.uid).get().then(sn=>{
   if(sn.exists){const d=sn.data();if(d&&d.host===DB.uid&&d.st){try{const o=JSON.parse(d.st);LB.saved={d,names:o.names||[],end:!!o.end}}catch(e){}}}
   if(!S)hostLobby();
  }).catch(()=>{if(!S)hostLobby()})}catch(e){hostLobby()}
@@ -210,7 +223,7 @@ function savedBox(){
 function hostResume(){
  const sv=LB.saved;if(!sv)return;
  let o;try{o=JSON.parse(sv.d.st)}catch(e){LB.saved=null;return hostLobby()}
- S=o;LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
+ S=o;LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
  if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
  R();
@@ -237,25 +250,27 @@ function gameSub(){
 }
 function teamStart(){
  TS.un=TS.un||[];clearInterval(TS.poll);
- try{TS.un.push(DB.doc('rooms/main').onSnapshot(sn=>{TS.room=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
+ if(!TS.rid){$('g').innerHTML=BX('<div class="v">🕯️📚 <b>الانضمام لغرفة</b></div><input id="rcode" placeholder="رمز الغرفة (من المنظم)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamCode()">ادخل</button></div><small>أو افتح الرابط الذي أرسله لك المنظم.</small>');return}
+ try{TS.un.push(DB.doc('rooms/'+TS.rid).onSnapshot(sn=>{TS.room=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
  try{TS.un.push(DB.doc('teams/'+DB.uid).onSnapshot(sn=>{TS.me=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
  TS.poll=setInterval(()=>{
   if(document.hidden)return;
   try{
-   DB.doc('rooms/main').get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.room)){TS.room=d;teamRender()}}).catch(()=>{});
+   DB.doc('rooms/'+TS.rid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.room)){TS.room=d;teamRender()}}).catch(()=>{});
    DB.doc('teams/'+DB.uid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.me)){TS.me=d;teamRender()}}).catch(()=>{});
   }catch(e){}
  },3000);
  teamRender();
 }
+function teamCode(){const v=($('rcode').value||'').trim().toUpperCase();if(!v)return;TS.rid=v;try{location.hash='#team='+v}catch(e){}teamStart()}
 function teamRefresh(){clearInterval(TS.poll);(TS.un||[]).forEach(f=>{try{f()}catch(e){}});TS.un=[];TS.room=null;TS.me=null;if(DB&&DB.uid)teamStart();else teamRender()}
 function teamRender(){
  const g=$('g'),r=TS.room,me=TS.me;
  if(!DB||!DB.uid){g.innerHTML=BX('⏳ جاري الاتصال…');return}
- if(!r){g.innerHTML=BX('⏳ بانتظار المنظم ليفتح التسجيل…');return}
+ if(!r){g.innerHTML=BX('⏳ لا توجد غرفة بهذا الرمز بعد، تأكد من الرابط…');return}
  if((r.kicked||[]).includes(DB.uid)){g.innerHTML=BX('تم إخراج فريقكم من اللعبة بواسطة المنظم.');return}
  if(r.mode==='game')return teamPlay();
- if(!me||me.session!==r.session){
+ if(!me||me.room!==TS.rid||me.session!==r.session){
   if(g.querySelector('#tn'))return;
   g.innerHTML=BX('<div class="v">🕯️📚 <b>تسجيل فريق</b></div><input id="tn" placeholder="اسم المجموعة"><input id="tm2" placeholder="أسماء الأعضاء (بفاصلة)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamReg()">سجّل</button></div><small id="te"></small>');
   return;
@@ -265,7 +280,7 @@ function teamRender(){
 async function teamReg(){
  const nm=$('tn').value.trim(),mm=$('tm2').value.trim(),te=$('te');
  if(!nm){te.textContent='اكتب اسم المجموعة';return}
- try{await DB.doc('teams/'+DB.uid).set({session:TS.room.session,name:nm,members:mm,ready:false,ts:Date.now()})}catch(e){te.textContent='تعذّر التسجيل: '+(e&&e.code||'')}
+ try{await DB.doc('teams/'+DB.uid).set({room:TS.rid,session:TS.room.session,name:nm,members:mm,ready:false,ts:Date.now()})}catch(e){te.textContent='تعذّر التسجيل: '+(e&&e.code||'')}
 }
 function teamReady(){if(!TS.me)return;DB.doc('teams/'+DB.uid).update({ready:!TS.me.ready}).catch(()=>{})}
 function teamPlay(){
@@ -318,7 +333,7 @@ BANK.forEach(x=>{const k=x.s+'|'+x.l+'|'+x.d;(BK[k]=BK[k]||[]).push([x.q,x.a])})
   const fs=firebase.firestore(),au=firebase.auth();try{fs.settings({experimentalForceLongPolling:true})}catch(e){}
   DB={uid:'',
    doc:p=>{const r=fs.doc(p);return{set:d=>r.set(d),update:d=>r.update(d),get:()=>r.get(),onSnapshot:(n,e)=>r.onSnapshot(sn=>n({exists:sn.exists,data:()=>sn.data()}),e)}},
-   collection:p=>{const c=fs.collection(p);return{onSnapshot:(n,e)=>c.onSnapshot(sn=>n({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}),e),get:()=>c.get().then(sn=>({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}))}}};
+   collection:p=>{const mk=q=>({where:(f,o,v)=>mk(q.where(f,o,v)),onSnapshot:(n,e)=>q.onSnapshot(sn=>n({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}),e),get:()=>q.get().then(sn=>({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}))});return mk(fs.collection(p))}};
   au.signInAnonymously().then(c=>{DB.uid=c.user.uid;if(TEAMMODE)teamStart();else if(S&&S.room){gameSub();push()}else hostInit()}).catch(e=>{$('g').innerHTML=BX('تعذّر الاتصال بقاعدة البيانات: '+E(String((e&&e.code)||e)))});
  }catch(e){}
 })();
