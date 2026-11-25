@@ -109,7 +109,7 @@ function pickL(i){S.l=i;S.ph='lvl';R()}
 function ask(d){
  if(S.x2a){const p=d?200:50;if((S.sc[S.t]||0)<p){lg('رصيد '+S.names[S.t]+' لا يكفي لهذا المستوى مع المضاعفة');R();return}S.sc[S.t]-=p;S.x2=true;S.x2a=false;lg(AV[S.t%4]+' '+S.names[S.t]+' دفعوا '+p+' للمضاعفة ✖️2')}
  else S.x2=false;
- S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;clearInterval(T);R();
+ S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;S.sl='';S.bk=0;clearInterval(T);R();
 }
 function rev(){clearInterval(T);S.el=S.run?30-S.tm:null;S.run=false;S.rv=true;S.req=null;R()}
 function tmStart(){if(S.ph!=='q'||S.rv||S.req)return;S.el=null;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
@@ -146,6 +146,53 @@ function reqBox(){
  const t=r.h==='x2'?'✖️2 مضاعفة النقاط · تُخصم عند اختيار المستوى (50 سهل / 200 صعب)':'🔄 تغيير السؤال · الثمن <b>'+r.p+'</b> نقطة';
  return '<div class="st on">🙋 '+AV[S.t%4]+' '+E(S.names[S.t])+' يطلبون: <b>'+t+'</b></div><div class="row"><button class="lv e" onclick="reqOk()">✅ موافقة</button><button class="lv h" onclick="reqNo()">❌ رفض</button></div>';
 }
+let BG=null;
+function bellElig(){return S.names.map((_,i)=>i).filter(i=>i!==S.t&&(S.sc[i]||0)>=50)}
+function stMs(x){try{return x.st&&x.st.toMillis?x.st.toMillis():null}catch(e){return null}}
+function bellTimer(sec,onEnd){
+ clearInterval(T);S.tm=sec;S.run=true;
+ T=setInterval(()=>{
+  S.tm--;
+  if(S.tm<=0){clearInterval(T);S.run=false;S.tm=0;onEnd();return}
+  const e=$('tm');if(e){e.textContent=S.tm;if(e.parentElement)e.parentElement.className='big'+(S.tm<=2?' warn':'')}
+  if(S.tm<=3)beep(880,100);
+  tick();
+ },1000);
+}
+function startBell(){
+ S.ph='bell';S.bph='win';S.bpr={};S.bw=-1;clearTimeout(BG);BG=null;
+ beep(740,200);bellTimer(5,bellEnd);R();
+}
+function bellEnd(){
+ if(S.ph!=='bell'||S.bph!=='win')return;
+ if(Object.keys(S.bpr||{}).length){clearTimeout(BG);BG=null;resolveBell();return}
+ clearTimeout(BG);BG=null;S.sl='🔔 لم يضغط أحد الجرس';S.bk=0;S.rs=(S.rs||0)+1;S.ph='res';R();
+}
+function bellPress(i,x){
+ if(!S||S.ph!=='bell'||S.bph!=='win'||i===S.t||x.rd!==S.rs||(S.sc[i]||0)<50)return;
+ if(S.bpr[i])return;
+ S.bpr[i]={st:stMs(x),sq:x.seq||0};
+ if(!BG)BG=setTimeout(resolveBell,900);
+ R();
+}
+function resolveBell(){
+ BG=null;
+ if(!S||S.ph!=='bell'||S.bph!=='win')return;
+ const ids=Object.keys(S.bpr||{}).map(Number);if(!ids.length)return;
+ const useSt=ids.every(i=>S.bpr[i].st!=null);
+ ids.sort((a,b)=>useSt?S.bpr[a].st-S.bpr[b].st:S.bpr[a].sq-S.bpr[b].sq);
+ S.bw=ids[0];S.bph='ans';S.bpr={};
+ lg('🔔 '+AV[S.bw%4]+' '+S.names[S.bw]+' سبقوا بالجرس');
+ beep(990,250);bellTimer(10,()=>{beep(300,400);R()});R();
+}
+function bellSkip(){if(S.ph!=='bell')return;clearInterval(T);clearTimeout(BG);BG=null;S.run=false;S.sl='تم تخطي السرقة';S.bk=0;S.ph='res';R()}
+function bellJudge(ok){
+ if(S.ph!=='bell'||S.bph!=='ans')return;
+ clearInterval(T);S.run=false;const w=S.bw;
+ if(ok){S.sc[w]+=50;S.sl='🔔 '+S.names[w]+' سرقوا الإجابة (+50)';burst('🔔');beep(880,300)}
+ else{S.sc[w]=Math.max(0,(S.sc[w]||0)-50);S.sl='🔔 '+S.names[w]+' أخطأوا في السرقة (−50)';burst('🙈');beep(220,300)}
+ lg(S.sl);S.bk=ok?1:2;S.rs=(S.rs||0)+1;S.ph='res';R();
+}
 function lgBox(){return (S&&S.lg&&S.lg.length)?'<div class="box"><small>'+S.lg.slice(-2).map(E).join('<br>')+'</small></div>':''}
 function summ(nm,sc,bs,cr,ft,win){
  const idx=nm.map((_,i)=>i).sort((a,b)=>sc[b]-sc[a]),m=Math.max(...sc);
@@ -167,7 +214,7 @@ function jd(ok){
  clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;S.ok=ok;
  if(ok){S.sc[S.t]+=ptsNow();S.cr[S.t]=(S.cr[S.t]||0)+1;S.sk[S.t]=(S.sk[S.t]||0)+1;if(S.sk[S.t]>(S.bs[S.t]||0))S.bs[S.t]=S.sk[S.t];if(S.el!=null&&(!S.ft||S.el<S.ft.s))S.ft={i:S.t,s:S.el,l:S.l}}
  else S.sk[S.t]=0;
- burst(ok?(S.sk[S.t]>=3?'🔥':'🎉'):'😬');beep(ok?880:220,300);S.cs[S.t][S.l]=ok?1:2;S.ph='res';R();
+ burst(ok?(S.sk[S.t]>=3?'🔥':'🎉'):'😬');beep(ok?880:220,300);S.cs[S.t][S.l]=ok?1:2;S.sl='';S.bk=0;if(!ok&&S.bell!==false&&bellElig().length){startBell();return}S.ph='res';R();
 }
 function adj(i,v){S.sc[i]+=v;R()}
 function setS(i,v){S.sc[i]=parseInt(v)||0;R()}
@@ -186,7 +233,12 @@ function R(){
   else if(S.req)q+=reqBox();
   else q+=`<div class="row"><button class="lv e" style="background:var(--pr)" onclick="tmStart()">▶️ ابدأ المؤقت (30 ثانية)</button></div><small>اقرأ السؤال للفريق ثم اضغط بدء المؤقت</small><div class="row"><button onclick="rev()">اكشف الإجابة</button></div>`;
  }
- if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+ptsNow()+(S.x2?' (مضاعفة ✖️2)':''):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b></div><div class="row"><button class="lv e" style="background:var(--pr)" onclick="nxt()">التالي ⏭️</button></div>`;
+ if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+ptsNow()+(S.x2?' (مضاعفة ✖️2)':''):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b>${S.sl?'<br><b>'+E(S.sl)+'</b>':''}</div><div class="row"><button class="lv e" style="background:var(--pr)" onclick="nxt()">التالي ⏭️</button></div>`;
+ if(S.ph=='bell'){
+  q+=`<div class="v">🔔 <b>السرقة بالجرس</b> — ${AV[S.t%4]} ${E(p)} أخطأوا</div><div class="q">${E(S.cur[0])}</div>`;
+  if(S.bph==='win')q+=`<div class="big${S.tm<=2?' warn':''}">⏱ <span id="tm">${S.tm}</span></div><small>الفرق تضغط الجرس من جوالاتها… أول من يضغط يجاوب</small><div class="row"><button onclick="bellSkip()">تخطي السرقة</button></div>`;
+  else{const w=S.bw;q+=`<div class="v">${AV[w%4]} <b>${E(S.names[w])}</b> سبقوا بالجرس 🔔</div><div class="big${S.tm<=3?' warn':''}">⏱ <span id="tm">${S.tm}</span></div><div class="v">الإجابة الصحيحة: <b>${E(S.cur[1].split('|')[0])}</b></div><div class="row"><button class="lv e" onclick="bellJudge(true)">✅ صح (+50)</button><button class="lv h" onclick="bellJudge(false)">❌ غلط (−50)</button></div>`}
+ }
  if(S.ph=='tie')q+=`<div class="v"><b>⚖️ تعادل! سؤال فاصل</b></div><div class="q">${TB[S.tb][0]}</div><small>الأقرب إلى الرقم الصحيح يفوز</small>`+(S.rv?`<div class="v">الإجابة: <b>${TB[S.tb][1]}</b></div><div class="row">`+S.tie.map(i=>`<button class="p" onclick="tbWin(${i})">🏆 ${E(S.names[i])}</button>`).join('')+`<button onclick="tbNext()">سؤال آخر</button></div>`:`<div class="row"><button class="p" onclick="tbRev()">اكشف الإجابة</button></div>`);
  if(S.ph=='end'){q+=summ(S.names,S.sc,S.bs||[],S.cr||[],S.ft||null,S.win).html+'<div class="row"><button class="p" onclick="shareSum()">📤 مشاركة النتيجة</button><button class="p" onclick="setup()">لعبة جديدة</button></div>'}
  $('q').innerHTML=kickBox()+hostBar()+lgBox()+q+'</div>';push();save();
@@ -197,7 +249,7 @@ let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,rid:'',teams:[]
 const TEAMMODE=location.hash.indexOf('#team')===0;
 TS.rid=(location.hash.split('=')[1]||'').toUpperCase();
 const BX=h=>`<div class="box">${h}</div>`;
-function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,sk:S.sk||[],bs:S.bs||[],cr:S.cr||[],ft:S.ft||null,x2:!!S.x2,x2a:!!S.x2a,ux:S.ux||[],uc:S.uc||[],cg:!!S.chg,rq:S.req?S.req.h:'',lg:(S.lg||[]).slice(-3),ts:Date.now()}).catch(()=>{})}catch(e){}}
+function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,sk:S.sk||[],bs:S.bs||[],cr:S.cr||[],ft:S.ft||null,x2:!!S.x2,x2a:!!S.x2a,ux:S.ux||[],uc:S.uc||[],cg:!!S.chg,rq:S.req?S.req.h:'',lg:(S.lg||[]).slice(-3),bph:S.bph||'',bw:(S.bw==null?-1:S.bw),bk:S.bk||0,sl:S.sl||'',ts:Date.now()}).catch(()=>{})}catch(e){}}
 function setup(){
  clearInterval(T);if(S)clearInterval(S.pp);clearInterval(LB.poll);S=null;LB={session:0,teams:[],err:'',kicked:[],saved:null};
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];
@@ -287,7 +339,7 @@ function kickDo(){
   return hostLobby();
  }
  const u=S.uids[i];if(!u)return R();
- const wasCur=(i===S.t);
+ const wasCur=(i===S.t);if(S.ph==='bell'){clearInterval(T);clearTimeout(BG);BG=null;S.run=false;S.ph='res';S.sl=''}
  LB.kicked=(LB.kicked||[]).concat([u]);
  ['names','mem','uids','sc','pk','cs','sk','bs','cr','ux','uc'].forEach(k=>{if(S[k])S[k].splice(i,1)});S.req=null;S.x2a=false;if(S.ft){if(S.ft.i===i)S.ft=null;else if(S.ft.i>i)S.ft.i--}
  if(S.names.length<2||S.ph==='tie'){clearInterval(T);S.end=true;S.ph='end';S.win=null}
@@ -295,7 +347,7 @@ function kickDo(){
  else if(i<S.t)S.t--;
  gameSub();R();
 }
-function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button><button id="tvb" onclick="copyTv()">📺 انسخ رابط شاشة العرض</button><input id="tvl" readonly value="'+E(tvLink())+'" style="position:absolute;left:-9999px"></div><small>'+(S.recyc?'⚠️ انتهت أسئلة هذا الحرف؛ أُعيد سؤال قديم. ':'')+'📚 المتبقي: '+poolStats(S.gu).left+' سؤالاً</small>':''}
+function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button><button id="tvb" onclick="copyTv()">📺 انسخ رابط شاشة العرض</button><button onclick="S.bell=(S.bell===false);R()">🔔 السرقة: '+(S.bell===false?'موقوفة':'مفعّلة')+'</button><input id="tvl" readonly value="'+E(tvLink())+'" style="position:absolute;left:-9999px"></div><small>'+(S.recyc?'⚠️ انتهت أسئلة هذا الحرف؛ أُعيد سؤال قديم. ':'')+'📚 المتبقي: '+poolStats(S.gu).left+' سؤالاً</small>':''}
 function save(){
  if(!DB||!DB.uid||!S||!S.room)return;
  const o={};Object.keys(S).forEach(k=>{if(k!=='sq'&&k!=='ini'&&k!=='pp')o[k]=S[k]});
@@ -314,7 +366,7 @@ function savedBox(){
 function hostResume(){
  const sv=LB.saved;if(!sv)return;
  let o;try{o=JSON.parse(sv.d.st)}catch(e){LB.saved=null;return hostLobby()}
- S=o;['sk','bs','cr','ux','uc'].forEach(k=>{if(!S[k])S[k]=Array((S.names||[]).length).fill(0)});S.lg=S.lg||[];LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
+ S=o;['sk','bs','cr','ux','uc'].forEach(k=>{if(!S[k])S[k]=Array((S.names||[]).length).fill(0)});S.lg=S.lg||[];if(S.ph==='bell'){S.ph='res';S.run=false}LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
  if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
  try{DB.doc('pool/used').get().then(sn=>{if(sn.exists){S.gu=Object.assign({},S.gu||{},sn.data());S.guEx=true}}).catch(()=>{})}catch(e){}
@@ -331,6 +383,7 @@ function pickEv(i,sn){
  const x=sn.data()||{};
  if(!S.ini[i]){S.ini[i]=1;S.sq[i]=x.seq||0;return}
  if(!x.seq||x.seq<=S.sq[i])return;S.sq[i]=x.seq;
+ if(x.kind==='bell'){bellPress(i,x);return}
  if(i!==S.t)return;
  if(x.kind==='l'&&S.ph==='pick'&&S.cs[S.t][x.l]===0)pickL(x.l);
  else if(x.kind==='d'&&S.ph==='lvl')ask(x.d?1:0);
@@ -339,7 +392,9 @@ function pickEv(i,sn){
 function gameSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(S.pp);S.sq=[];S.ini=[];
  S.uids.forEach((u,i)=>{try{unsub.push(DB.doc('picks/'+u).onSnapshot(sn=>pickEv(i,sn)))}catch(e){}});
- S.pp=setInterval(()=>{if(!S||document.hidden)return;const i=S.t,u=S.uids[i];if(!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}},2000);
+ S.pp=setInterval(()=>{if(!S||document.hidden)return;S.pc=(S.pc||0)+1;
+  if(S.ph==='bell'&&S.bph==='win'){S.uids.forEach((u,i)=>{if(i===S.t||!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}});return}
+  if(S.pc%2)return;const i=S.t,u=S.uids[i];if(!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}},1000);
 }
 const QR=(function(){
  const EXP=new Array(512),LOG=new Array(256);
@@ -457,10 +512,10 @@ function tvRender(){
   TV.k='';return;
  }
  const nm=r.names||[],sc=r.sc||[],cs=r.cs||[],sk=r.sk||[],ci=(r.t||0)%4;
- const key=JSON.stringify([r.t,r.ph,sc,r.pk,cs,r.l,r.d,r.ok,r.end,!!r.run,!!r.rv,!!r.to,r.rs,nm,r.win,r.x2,r.x2a,r.ux,r.uc,r.cg,r.rq,r.lg,sk,r.bs,r.cr,r.ft,TV.audio]);
+ const key=JSON.stringify([r.t,r.ph,sc,r.pk,cs,r.l,r.d,r.ok,r.end,!!r.run,!!r.rv,!!r.to,r.rs,nm,r.win,r.x2,r.x2a,r.ux,r.uc,r.cg,r.rq,r.lg,sk,r.bs,r.cr,r.ft,r.bph,r.bw,r.bk,r.sl,TV.audio]);
  const first=TV.k==='';
  if(!first){
-  if(r.rs&&r.rs!==TV.rs){burst(r.ok?((sk[r.t]>=3)?'🔥':'🎉'):'😬');if(TV.audio)beep(r.ok?880:220,300)}
+  if(r.rs&&r.rs!==TV.rs){burst(r.bk===1?'🔔':r.bk===2?'🙈':(r.ok?((sk[r.t]>=3)?'🔥':'🎉'):'😬'));if(TV.audio)beep(r.ok?880:220,300)}
   if(r.end&&!TV.endd){burst('🏆');if(TV.audio)beep(990,400)}
  }
  TV.rs=r.rs;TV.endd=!!r.end;
@@ -481,7 +536,12 @@ function tvRender(){
   else if(r.run)st=hd+'<div class="big'+(r.tm<=5?' warn':'')+'">⏱ <span id="tvtm">'+r.tm+'</span></div><div class="bar"><i id="tvbar" style="width:'+(r.tm/30*100)+'%"></i></div>';
   else st=hd+'<div class="st on big2"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم…</div>'+(r.rq?'<div class="st on">🙋 طلب مساعدة بانتظار موافقة المنظم…</div>':'');
  }
- else if(r.ph==='res')st='<div class="st big2 '+(r.ok?'okc':'badc')+'">'+(r.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة')+' — '+ca+' '+cur+'</div>';
+ else if(r.ph==='bell'){
+  if(r.bph==='win')st='<div class="st big2">'+ca+' '+cur+' أخطأوا في حرف «<b>'+L[r.l]+'</b>»</div><div class="st on big2">🔔 فرصة السرقة! أول من يضغط الجرس يجاوب</div><div class="big'+(r.tm<=2?' warn':'')+'">🔔 <span id="tvtm">'+r.tm+'</span></div>';
+  else{const w=r.bw;st='<div class="st on big2">🔔 '+AV[(w||0)%4]+' <b>'+E(nm[w]||'')+'</b> سبقوا بالجرس — يجاوبون الآن</div><div class="big'+(r.tm<=3?' warn':'')+'">⏱ <span id="tvtm">'+r.tm+'</span></div>'}
+ }
+ 
+else if(r.ph==='res')st='<div class="st big2 '+(r.ok?'okc':'badc')+'">'+(r.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة')+' — '+ca+' '+cur+(r.sl?'<br>'+E(r.sl):'')+'</div>';
  if((r.ph==='pick'||r.ph==='lvl')&&r.x2a)st+='<div class="st on">✖️2 مضاعفة مفعّلة لهذا الفريق</div>';
  if(r.ph==='pick'&&r.rq==='x2')st+='<div class="st on">🙋 طلب مضاعفة بانتظار موافقة المنظم…</div>';
  const boards='<div class="boards">'+nm.map((n2,i)=>{const row=cs[i]||'0'.repeat(28);return '<div class="bd t'+(i%4)+((i===r.t&&!r.end)?' on':'')+'"><div class="hd"><span>'+AV[i%4]+' '+E(n2)+((sk[i]>=3)?' 🔥'+sk[i]:'')+'</span><b class="tvs">'+(sc[i]||0)+'</b></div><div class="gr">'+L.map((c,k)=>{const v=row[k],hot=(i===r.t&&r.l===k&&(r.ph==='lvl'||r.ph==='q'));return '<span class="c s'+v+(hot?' av':'')+'">'+c+'</span>'}).join('')+'</div><small>متبقي '+(10-((r.pk||[])[i]||0))+' اختيارات</small></div>'}).join('')+'</div>';
@@ -528,10 +588,10 @@ function teamPlay(){
  const s=TS.room,g=$('g'),i=(s.uids||[]).indexOf(DB.uid);
  if(i<0){g.innerHTML=BX('اللعبة بدأت وفريقكم غير مسجّل فيها. انتظروا اللعبة القادمة.');TS.hasT=false;return}
  const nm=s.names||[],sc=s.sc||[],my=s.t===i,ci=i%4;
- const key=JSON.stringify([s.t,s.ph,s.sc,s.pk,s.cs,s.l,s.d,s.ok,s.end,!!s.run,!!s.rv,!!s.to,s.rs,s.names,s.win,s.x2,s.x2a,s.ux,s.uc,s.cg,s.rq,s.lg,s.sk,s.bs,s.cr,s.ft]);
+ const key=JSON.stringify([s.t,s.ph,s.sc,s.pk,s.cs,s.l,s.d,s.ok,s.end,!!s.run,!!s.rv,!!s.to,s.rs,s.names,s.win,s.x2,s.x2a,s.ux,s.uc,s.cg,s.rq,s.lg,s.sk,s.bs,s.cr,s.ft,s.bph,s.bw,s.bk,s.sl]);
  const first=TS.k===undefined;
  if(!first){
-  if(s.rs&&s.rs!==TS.rs){burst(s.ok?'🎉':'😬');beep(s.ok?880:220,300);if(s.t===i)vib(s.ok?[100,50,100]:[300])}
+  if(s.rs&&s.rs!==TS.rs){burst(s.bk===1?'🔔':s.bk===2?'🙈':(s.ok?'🎉':'😬'));beep((s.ok||s.bk===1)?880:220,300);if(s.t===i)vib(s.ok?[100,50,100]:[300])}
   if(my&&s.ph==='pick'&&TS.kk!==s.t+'|pick'){vib([150,80,150]);beep(660,150)}
   if(s.end&&!TS.endd){burst('🏆');beep(990,400)}
  }
@@ -555,7 +615,21 @@ function teamPlay(){
   else if(s.run){TS.hasT=true;st=hd+`<div id="tbig" class="big${s.tm<=5?' warn':''}">⏱ <span id="ttm">${s.tm}</span></div><div class="bar"><i id="tbar" style="width:${s.tm/30*100}%"></i></div>`}
   else{st=hd+'<div class="st on"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم… سيبدأ الوقت قريباً</div>';if(my)st+=tbtns(s,sc[i]||0,i)}
  }
- else if(s.ph==='res')st=`<div class="st ${s.ok?'okc':'badc'}">${s.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة'} — ${ca} ${cur}</div>`;
+ else if(s.ph==='bell'){
+  const orig=(s.t===i),elig=!orig&&(sc[i]||0)>=50,w=s.bw;
+  TS.hasT=true;
+  if(s.bph==='win'){
+   st=`<div class="st">${ca} ${cur} أخطأوا في حرف «${L[s.l]}» — فرصة السرقة 🔔</div><div id="tbig" class="big${s.tm<=2?' warn':''}">🔔 <span id="ttm">${s.tm}</span></div>`;
+   if(orig)st+='<div class="st badc">😬 أخطأتم — الفرق الأخرى تحاول السرقة</div>';
+   else if(!elig)st+='<div class="st">رصيدكم أقل من 50 فلا يمكنكم السرقة</div>';
+   else st+=`<div class="row"><button class="lv" style="background:var(--bad);font-size:28px;padding:24px 44px" ${TS.bp===s.rs?'disabled':''} onclick="tbell()">🔔 اضغطوا الجرس!</button></div><small>${TS.bp===s.rs?'⏳ تم إرسال ضغطتكم…':'أول من يضغط يجاوب · لو أخطأتم −50 نقطة'}</small>`;
+  }else{
+   const mine=(w===i);
+   st=`<div class="st ${mine?'on':''}">${mine?'🔔 سبقتم الجميع! أجيبوا الآن':'🔔 '+AV[(w||0)%4]+' '+E(nm[w]||'')+' سبقوا بالجرس — يجاوبون الآن'}</div><div id="tbig" class="big${s.tm<=3?' warn':''}">⏱ <span id="ttm">${s.tm}</span></div>`+(mine?'<small>أجيبوا للمنظم شفوياً · الصح +50 والغلط −50</small>':'');
+  }
+ }
+ 
+else if(s.ph==='res')st=`<div class="st ${s.ok?'okc':'badc'}">${s.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة'} — ${ca} ${cur}${s.sl?'<br>'+E(s.sl):''}</div>`;
  const row=(s.cs&&s.cs[i])||'0'.repeat(28),on=my&&s.ph==='pick';
  let h=`<div class="turn" style="background:${CL[ci]}">${AV[ci]} ${E(nm[i]||'')} · <b>${sc[i]||0}</b> نقطة</div>`;
  h+=`<div class="box">${st}<small id="te">${E(TS.err)} متبقي ${10-((s.pk||[])[i]||0)} اختيارات</small>${(s.lg&&s.lg.length)?'<br><small>'+s.lg.slice(-2).map(E).join('<br>')+'</small>':''}</div>`;
@@ -571,6 +645,10 @@ function txbtn(s,bal,i){
 function tbtns(s,bal,i){
  const pc=s.d?100:50,pend=!!s.rq,used=!!((s.uc||[])[i]),dis=pend||used||bal<pc;
  return '<div class="row"><button class="lv" style="background:var(--pr);'+(dis?'opacity:.45':'')+'" '+(dis?'disabled':'')+' onclick="tpick(\'h\',null,0,\'chg\')">🔄 تغيير السؤال · −'+pc+'</button></div><small>'+(pend?'⏳ بانتظار موافقة المنظم…':used?'استخدمتم تغيير السؤال في هذه اللعبة':bal<pc?'رصيدكم لا يكفي':'مرة واحدة في اللعبة · قبل بدء المؤقت')+'</small>';
+}
+async function tbell(){
+ const r=TS.room;if(!r)return;TS.bp=r.rs;
+ try{const st=(window.firebase&&firebase.firestore&&firebase.firestore.FieldValue)?firebase.firestore.FieldValue.serverTimestamp():null;await DB.doc('picks/'+DB.uid).set({kind:'bell',rd:r.rs,l:0,d:0,h:'',seq:Date.now(),st:st});vib([80]);TS.k='';teamPlay()}catch(e){TS.bp=null;TS.err='ما قدرت أرسل ضغطتكم';teamPlay()}
 }
 async function tpick(kind,l,d,h){
  try{await DB.doc('picks/'+DB.uid).set({kind,l:l===null?0:l,d:d||0,h:h||'',seq:Date.now()});TS.err='✔️ تم إرسال اختياركم…';teamPlay()}catch(e){TS.err='ما قدرت أرسل اختيارك؛ قولوا الحرف للمنظم.';teamPlay()}
