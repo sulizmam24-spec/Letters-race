@@ -74,7 +74,29 @@ const E=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot
 let S,n=2,T=null;
 const TB=[["كم عدد الدول الأعضاء في الأمم المتحدة؟","193"],["كم عدد سور القرآن الكريم؟","114"],["كم عدد عظام جسم الإنسان البالغ؟","206"],["ما سنة هجرة النبي ﷺ ميلادياً؟","622"],["ما سنة فتح القسطنطينية ميلادياً؟","1453"],["كم عدد ركعات الصلوات المفروضة في اليوم والليلة؟","17"],["كم تقريباً ارتفاع قمة إيفرست بالمتر؟","8849"],["كم تقريباً تبعد القمر عن الأرض بالكيلومتر؟","384400"]];
 let BK={};
-function pick(){const k=(S.t%4)+'|'+S.l+'|'+S.d,x=Q(),a=(BK[k]||[]).concat([S.d?[x[2],x[3]]:[x[0],x[1]]]);return a[Math.floor(Math.random()*a.length)]}
+let POOL=null;
+function qid(q){let h=5381;for(let i=0;i<q.length;i++)h=((h<<5)+h+q.charCodeAt(i))|0;return 'q'+(h>>>0).toString(36)}
+function buildPool(){
+ POOL={};const add=(l,d,q,a)=>{const k=l+'|'+d;(POOL[k]=POOL[k]||[]).push([q,a,qid(q)])};
+ D.forEach(set=>set.forEach((r,l)=>{add(l,0,r[0],r[1]);add(l,1,r[2],r[3])}));
+ BANK.forEach(b=>add(b.l,b.d,b.q,b.a));
+}
+function poolStats(gu){if(!POOL)buildPool();let t=0,u=0;Object.values(POOL).forEach(a=>a.forEach(x=>{t++;if(gu&&gu[x[2]])u++}));return {t,left:t-u}}
+function markUsed(id){
+ if(!DB||!S)return;S.gu=S.gu||{};
+ const p=DB.doc('pool/used'),v=S.gu[id];
+ try{p.update({[id]:v}).catch(()=>{p.set({[id]:v}).catch(()=>{})})}catch(e){}
+}
+function pick(){
+ if(!POOL)buildPool();
+ const pool=POOL[S.l+'|'+S.d]||[],gu=S.gu||(S.gu={}),used=S.used||(S.used=[]);
+ let c=pool.filter(x=>!used.includes(x[2])&&!gu[x[2]]);
+ S.recyc=false;
+ if(!c.length){S.recyc=true;c=pool.filter(x=>!used.includes(x[2])).sort((a,b)=>(gu[a[2]]||0)-(gu[b[2]]||0)).slice(0,3);if(!c.length)c=pool}
+ const r=c[Math.floor(Math.random()*c.length)];
+ used.push(r[2]);gu[r[2]]=Date.now();markUsed(r[2]);
+ return [r[0],r[1]];
+}
 function tbRev(){S.rv=true;R()}
 function tbNext(){S.tb=(S.tb+1)%TB.length;S.rv=false;R()}
 function tbWin(i){S.win=i;S.end=true;S.ph='end';R()}
@@ -127,7 +149,7 @@ function hostOpen(tries){
  DB.doc('rooms/'+rid).set({host:DB.uid,session:ses,mode:'lobby',kicked:[],ts:Date.now()}).then(()=>{
   LB.rid=rid;LB.session=ses;LB.err='';LB.kicked=[];LB.saved=null;
   DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:rid,session:0,kicked:[],st:'',ts:Date.now()}).catch(()=>{});
-  lbSub();hostLobby();
+  lbSub();loadGu();hostLobby();
  }).catch(e=>{if(tries<3)return hostOpen(tries+1);LB.err='ما قدرت أفتح التسجيل: '+(e&&e.code||'');hostLobby()});
 }
 function teamLink(){return location.href.split('#')[0]+'#team='+LB.rid}
@@ -146,9 +168,11 @@ function lbSub(){
  try{unsub.push(DB.collection('teams').where('room','==',LB.rid).onSnapshot(sn=>lbApply(sn),e=>{LB.err='تعذّر قراءة الفرق: '+(e&&e.code||'');if(!S)hostLobby()}))}catch(e){}
  LB.poll=setInterval(()=>{if(S||document.hidden)return;try{DB.collection('teams').where('room','==',LB.rid).get().then(sn=>lbApply(sn)).catch(()=>{})}catch(e){}},3000);
 }
+function remBox(gu){if(!gu)return '';const p=poolStats(gu);return `<div class="v">📚 الأسئلة المتبقية: <b>${p.left}</b> من ${p.t}</div>`}
+function loadGu(){try{DB.doc('pool/used').get().then(sn=>{LB.gu=sn.exists?sn.data():{};if(!S)hostLobby()}).catch(()=>{})}catch(e){}}
 function hostLobby(){
  const tm=LB.teams,all=tm.length>=2&&tm.every(t=>t.ready);
- let h=kickBox()+savedBox()+'<b>المنظم</b>';
+ let h=kickBox()+savedBox()+'<b>المنظم</b>'+remBox(LB.gu);
  if(!DB||!DB.uid)h+='<div class="v">⏳ جاري الاتصال بقاعدة البيانات…</div>';
  else if(!LB.session)h+='<div class="row"><button class="p" onclick="hostOpen()">فتح التسجيل للفرق</button></div><small>بعد الفتح يظهر لك رابط خاص بغرفتك، ترسله للفرق ويسجّل ويضغط «جاهز».</small>';
  else{
@@ -163,8 +187,11 @@ function hostStart(){
  clearInterval(LB.poll);
  const tm=LB.teams;if(tm.length<2||!tm.every(t=>t.ready))return;
  n=tm.length;
- S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main'};
- gameSub();R();
+ const go=(gu,ex)=>{
+  S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main',gu:gu||{},guEx:!!ex,used:[]};
+  gameSub();R();
+ };
+ try{DB.doc('pool/used').get().then(sn=>go(sn.exists?sn.data():{},sn.exists)).catch(()=>go({},false))}catch(e){go({},false)}
 }
 const AV=['🦅','🐯','🦁','🐺'],CL=['#14b8a6','#f59e0b','#ec4899','#8b5cf6'];
 function burst(e){try{for(let i=0;i<26;i++){const d=document.createElement('span');d.className='cf';d.textContent=e;d.style.left=(Math.random()*100)+'vw';d.style.animationDelay=(Math.random()*.7)+'s';d.style.fontSize=(20+Math.random()*22)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),3400)}}catch(x){}}
@@ -206,7 +233,7 @@ function kickDo(){
  else if(i<S.t)S.t--;
  gameSub();R();
 }
-function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button></div>':''}
+function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button></div><small>'+(S.recyc?'⚠️ انتهت أسئلة هذا الحرف؛ أُعيد سؤال قديم. ':'')+'📚 المتبقي: '+poolStats(S.gu).left+' سؤالاً</small>':''}
 function save(){
  if(!DB||!DB.uid||!S||!S.room)return;
  const o={};Object.keys(S).forEach(k=>{if(k!=='sq'&&k!=='ini'&&k!=='pp')o[k]=S[k]});
@@ -228,6 +255,7 @@ function hostResume(){
  S=o;LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
  if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
+ try{DB.doc('pool/used').get().then(sn=>{if(sn.exists){S.gu=Object.assign({},S.gu||{},sn.data());S.guEx=true}}).catch(()=>{})}catch(e){}
  R();
 }
 function hostRefresh(){
