@@ -102,40 +102,97 @@ function tbNext(){S.tb=(S.tb+1)%TB.length;S.rv=false;R()}
 function tbWin(i){S.win=i;S.end=true;S.ph='end';R()}
 function pickL(i){S.l=i;S.ph='lvl';R()}
 function ask(d){
- S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;clearInterval(T);R();
+ if(S.x2a){const p=d?200:50;if((S.sc[S.t]||0)<p){lg('رصيد '+S.names[S.t]+' لا يكفي لهذا المستوى مع المضاعفة');R();return}S.sc[S.t]-=p;S.x2=true;S.x2a=false;lg(AV[S.t%4]+' '+S.names[S.t]+' دفعوا '+p+' للمضاعفة ✖️2')}
+ else S.x2=false;
+ S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;clearInterval(T);R();
 }
-function rev(){clearInterval(T);S.run=false;S.rv=true;R()}
-function tmStart(){if(S.ph!=='q'||S.rv)return;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
+function rev(){clearInterval(T);S.el=S.run?30-S.tm:null;S.run=false;S.rv=true;S.req=null;R()}
+function tmStart(){if(S.ph!=='q'||S.rv||S.req)return;S.el=null;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
 function tick(){try{DB.doc('rooms/'+LB.rid).update({tm:S.tm,run:!!S.run}).catch(()=>{})}catch(e){}}
-function jd(ok){clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;burst(ok?'🎉':'😬');beep(ok?880:220,300);S.ok=ok;if(ok)S.sc[S.t]+=S.d?300:100;S.cs[S.t][S.l]=ok?1:2;S.ph='res';R()}
+function ptsNow(){return (S.d?300:100)*(S.x2?2:1)}
+function lg(t){S.lg=(S.lg||[]).concat([t]).slice(-4)}
+function reqPrice(h){return S.d?100:50}
+function hostReq(h){
+ if(!S||S.req)return;
+ const t=S.t;
+ if(h==='x2'){
+  if(S.ph!=='pick'||S.x2a||(S.ux&&S.ux[t]))return;
+  if((S.sc[t]||0)<50){lg('رصيد '+S.names[t]+' لا يكفي للمضاعفة (أقل سعر 50)');R();return}
+ }else if(h==='chg'){
+  if(S.ph!=='q'||S.run||S.rv||(S.uc&&S.uc[t]))return;
+  if((S.sc[t]||0)<(S.d?100:50)){lg('رصيد '+S.names[t]+' لا يكفي لتغيير السؤال');R();return}
+ }else return;
+ S.req={h:h,p:h==='x2'?0:(S.d?100:50)};beep(660,150);R();
+}
+function reqOk(){
+ const q=S.req;if(!q)return;S.req=null;const t=S.t;
+ if(q.h==='x2'){S.ux[t]=1;S.x2a=true;lg(AV[t%4]+' '+S.names[t]+' فعّلوا المضاعفة ✖️2 (تُخصم عند اختيار المستوى)')}
+ else{
+  if((S.sc[t]||0)<q.p){lg('رصيد '+S.names[t]+' لا يكفي');return R()}
+  S.sc[t]-=q.p;S.uc[t]=1;S.chg=true;S.cur=pick();lg(AV[t%4]+' '+S.names[t]+' دفعوا '+q.p+' لتغيير السؤال 🔄');
+ }
+ R();
+}
+function reqNo(){if(!S.req)return;lg('رفض المنظم طلب '+S.names[S.t]);S.req=null;R()}
+function cancelX2(){if(!S.x2a)return;S.x2a=false;S.ux[S.t]=0;lg('أُلغيت المضاعفة وعادت للفريق '+S.names[S.t]);R()}
+function lvDis(d){return (S.x2a&&(S.sc[S.t]||0)<(d?200:50))?'disabled style="opacity:.45"':''}
+function reqBox(){
+ const r=S.req;if(!r)return '';
+ const t=r.h==='x2'?'✖️2 مضاعفة النقاط · تُخصم عند اختيار المستوى (50 سهل / 200 صعب)':'🔄 تغيير السؤال · الثمن <b>'+r.p+'</b> نقطة';
+ return '<div class="st on">🙋 '+AV[S.t%4]+' '+E(S.names[S.t])+' يطلبون: <b>'+t+'</b></div><div class="row"><button class="lv e" onclick="reqOk()">✅ موافقة</button><button class="lv h" onclick="reqNo()">❌ رفض</button></div>';
+}
+function lgBox(){return (S&&S.lg&&S.lg.length)?'<div class="box"><small>'+S.lg.slice(-2).map(E).join('<br>')+'</small></div>':''}
+function summ(nm,sc,bs,cr,ft,win){
+ const idx=nm.map((_,i)=>i).sort((a,b)=>sc[b]-sc[a]),m=Math.max(...sc);
+ const w=(win!=null&&win>=0)?[win]:nm.map((_,i)=>i).filter(i=>sc[i]===m);
+ const bsM=Math.max(0,...bs.map(x=>x||0)),bsI=bs.indexOf(bsM),crM=Math.max(0,...cr.map(x=>x||0)),crI=cr.indexOf(crM);
+ let h='<div class="box" style="text-align:center"><div class="big2">🏆 '+(w.length>1?'تعادل بين':'الفائز')+'</div><div class="v"><b>'+w.map(i=>AV[i%4]+' '+E(nm[i])).join('، ')+'</b></div>';
+ h+=idx.map((i,r)=>'<div class="sbr'+(w.includes(i)?' cur':'')+'"><span>'+(['🥇','🥈','🥉','4️⃣'][r]||'')+' '+AV[i%4]+' '+E(nm[i])+'</span><b>'+sc[i]+'</b></div>').join('')+'<hr>';
+ if(bsM>=2)h+='<div>🔥 أطول ستريك: '+AV[bsI%4]+' '+E(nm[bsI])+' ('+bsM+' متتالية)</div>';
+ if(crM>0)h+='<div>🎯 أكثر إجابات صحيحة: '+AV[crI%4]+' '+E(nm[crI])+' ('+crM+')</div>';
+ if(ft&&nm[ft.i]!==undefined)h+='<div>⚡ أسرع إجابة: '+AV[ft.i%4]+' '+E(nm[ft.i])+' في '+ft.s+' ثانية (حرف «'+L[ft.l]+'»)</div>';
+ h+='</div>';
+ let t='🕯️📚 سباق الحروف\n'+(w.length>1?'تعادل بين: ':'الفائز: ')+w.map(i=>nm[i]).join('، ')+'\n'+idx.map(i=>nm[i]+': '+sc[i]).join('\n');
+ if(bsM>=2)t+='\n🔥 أطول ستريك: '+nm[bsI]+' ('+bsM+')';
+ if(ft&&nm[ft.i]!==undefined)t+='\n⚡ أسرع إجابة: '+nm[ft.i]+' ('+ft.s+' ث)';
+ return {html:h,text:t};
+}
+function shareSum(){const x=summ(S.names,S.sc,S.bs||[],S.cr||[],S.ft||null,S.win);try{if(navigator.share){navigator.share({text:x.text}).catch(()=>{});return}}catch(e){}try{navigator.clipboard.writeText(x.text)}catch(e){}}
+function jd(ok){
+ clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;S.ok=ok;
+ if(ok){S.sc[S.t]+=ptsNow();S.cr[S.t]=(S.cr[S.t]||0)+1;S.sk[S.t]=(S.sk[S.t]||0)+1;if(S.sk[S.t]>(S.bs[S.t]||0))S.bs[S.t]=S.sk[S.t];if(S.el!=null&&(!S.ft||S.el<S.ft.s))S.ft={i:S.t,s:S.el,l:S.l}}
+ else S.sk[S.t]=0;
+ burst(ok?(S.sk[S.t]>=3?'🔥':'🎉'):'😬');beep(ok?880:220,300);S.cs[S.t][S.l]=ok?1:2;S.ph='res';R();
+}
 function adj(i,v){S.sc[i]+=v;R()}
 function setS(i,v){S.sc[i]=parseInt(v)||0;R()}
 function nxt(){
- if(S.pk.every(x=>x>=10)){const m=Math.max(...S.sc),tp=S.names.map((_,i)=>i).filter(i=>S.sc[i]==m);if(tp.length>1){S.ph='tie';S.tie=tp;S.tb=Math.floor(Math.random()*TB.length);S.rv=false}else{S.end=true;S.ph='end'}}else{S.t=(S.t+1)%S.names.length;S.ph='pick'}
+ if(S.pk.every(x=>x>=10)){const m=Math.max(...S.sc),tp=S.names.map((_,i)=>i).filter(i=>S.sc[i]==m);if(tp.length>1){S.ph='tie';S.tie=tp;S.tb=Math.floor(Math.random()*TB.length);S.rv=false}else{S.end=true;S.ph='end'}}else{S.t=(S.t+1)%S.names.length;S.ph='pick';S.x2a=false;S.req=null}
  R();
 }
 function R(){
  let q='<div class="box">',p=S.names[S.t];
-  if(S.ph=='pick')q+=`<div class="v">🎯 دور <b>${AV[S.t%4]} ${E(p)}</b></div><div class="q">ينتظر اختيار الحرف · باقي ${10-S.pk[S.t]} اختيارات</div>`;
- if(S.ph=='lvl')q+=`<div class="q">${AV[S.t%4]} ${E(p)} اختاروا الحرف «${L[S.l]}»</div><div class="row"><button class="lv e" onclick="ask(0)">🟢 سهل · 100</button><button class="lv h" onclick="ask(1)">🔴 صعب · 300</button><button onclick="S.ph='pick';R()">رجوع</button></div>`;
+  if(S.ph=='pick')q+=`<div class="v">🎯 دور <b>${AV[S.t%4]} ${E(p)}</b></div><div class="q">ينتظر اختيار الحرف · باقي ${10-S.pk[S.t]} اختيارات</div>`+(S.req?reqBox():'')+(S.x2a?'<div class="st on">✖️2 مضاعفة مفعّلة — تُخصم عند اختيار المستوى</div>':'');
+ if(S.ph=='lvl')q+=`<div class="q">${AV[S.t%4]} ${E(p)} اختاروا الحرف «${L[S.l]}»</div><div class="row"><button class="lv e" ${lvDis(0)} onclick="ask(0)">🟢 سهل · 100${S.x2a?' (−50)':''}</button><button class="lv h" ${lvDis(1)} onclick="ask(1)">🔴 صعب · 300${S.x2a?' (−200)':''}</button>${S.x2a?'<button onclick="cancelX2()">إلغاء المضاعفة</button>':''}<button onclick="S.ph='pick';R()">رجوع</button></div>`;
  if(S.ph=='q'){
-  q+=`<small>${AV[S.t%4]} ${E(p)} · حرف «${L[S.l]}» · ${S.d?'🔴 صعب 300':'🟢 سهل 100'}</small><div class="q">${E(S.cur[0])}</div>`;
+  q+=`<small>${AV[S.t%4]} ${E(p)} · حرف «${L[S.l]}» · ${S.d?'🔴 صعب 300':'🟢 سهل 100'}${S.x2?' · ✖️2 مفعّلة':''}${S.chg?' · 🔄 تم التغيير':''}</small><div class="q">${E(S.cur[0])}</div>`;
   if(S.rv)q+=`<div class="v">${S.to?'⏰ انتهى الوقت':''}</div><div class="v">الإجابة: <b>${E(S.cur[1].split('|')[0])}</b></div><div class="row"><button class="lv e" onclick="jd(true)">✅ صح</button><button class="lv h" onclick="jd(false)">❌ غلط</button></div>`;
   else if(S.run)q+=`<div class="big${S.tm<=5?' warn':''}">⏱ <span id="tm">${S.tm}</span></div><div class="bar"><i id="tb2" style="width:${S.tm/30*100}%"></i></div><div class="row"><button onclick="rev()">اكشف الإجابة</button></div>`;
+  else if(S.req)q+=reqBox();
   else q+=`<div class="row"><button class="lv e" style="background:var(--pr)" onclick="tmStart()">▶️ ابدأ المؤقت (30 ثانية)</button></div><small>اقرأ السؤال للفريق ثم اضغط بدء المؤقت</small><div class="row"><button onclick="rev()">اكشف الإجابة</button></div>`;
  }
- if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+(S.d?300:100):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b></div><div class="row"><button class="lv e" style="background:var(--pr)" onclick="nxt()">التالي ⏭️</button></div>`;
+ if(S.ph=='res')q+=`<div class="v" style="color:var(${S.ok?'--ok':'--bad'})"><b>${S.ok?'✅ صح! +'+ptsNow()+(S.x2?' (مضاعفة ✖️2)':''):'❌ غلط · انحجب الحرف وضاعت نقاطه'}</b></div><div class="row"><button class="lv e" style="background:var(--pr)" onclick="nxt()">التالي ⏭️</button></div>`;
  if(S.ph=='tie')q+=`<div class="v"><b>⚖️ تعادل! سؤال فاصل</b></div><div class="q">${TB[S.tb][0]}</div><small>الأقرب إلى الرقم الصحيح يفوز</small>`+(S.rv?`<div class="v">الإجابة: <b>${TB[S.tb][1]}</b></div><div class="row">`+S.tie.map(i=>`<button class="p" onclick="tbWin(${i})">🏆 ${E(S.names[i])}</button>`).join('')+`<button onclick="tbNext()">سؤال آخر</button></div>`:`<div class="row"><button class="p" onclick="tbRev()">اكشف الإجابة</button></div>`);
- if(S.ph=='end'){const m=Math.max(...S.sc),w=S.win!=null?[S.names[S.win]]:S.names.filter((_,i)=>S.sc[i]==m);q+=`<div class="v"><b>🏆 ${w.length>1?'تعادل بين: ':'الفائز: '}${w.map(E).join('، ')} (${m} نقطة)</b></div><div class="row"><button class="p" onclick="setup()">لعبة جديدة</button></div>`}
- $('q').innerHTML=kickBox()+hostBar()+q+'</div>';push();save();
- $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return `<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
+ if(S.ph=='end'){q+=summ(S.names,S.sc,S.bs||[],S.cr||[],S.ft||null,S.win).html+'<div class="row"><button class="p" onclick="shareSum()">📤 مشاركة النتيجة</button><button class="p" onclick="setup()">لعبة جديدة</button></div>'}
+ $('q').innerHTML=kickBox()+hostBar()+lgBox()+q+'</div>';push();save();
+ $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${(S.sk&&S.sk[i]>=3)?' 🔥'+S.sk[i]:''}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return `<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
 }
 
 let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,rid:'',teams:[],err:'',kicked:[],saved:null};
 const TEAMMODE=location.hash.indexOf('#team')===0;
 TS.rid=(location.hash.split('=')[1]||'').toUpperCase();
 const BX=h=>`<div class="box">${h}</div>`;
-function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,ts:Date.now()}).catch(()=>{})}catch(e){}}
+function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,sk:S.sk||[],bs:S.bs||[],cr:S.cr||[],ft:S.ft||null,x2:!!S.x2,x2a:!!S.x2a,ux:S.ux||[],uc:S.uc||[],cg:!!S.chg,rq:S.req?S.req.h:'',lg:(S.lg||[]).slice(-3),ts:Date.now()}).catch(()=>{})}catch(e){}}
 function setup(){
  clearInterval(T);if(S)clearInterval(S.pp);clearInterval(LB.poll);S=null;LB={session:0,teams:[],err:'',kicked:[],saved:null};
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];
@@ -188,7 +245,7 @@ function hostStart(){
  const tm=LB.teams;if(tm.length<2||!tm.every(t=>t.ready))return;
  n=tm.length;
  const go=(gu,ex)=>{
-  S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main',gu:gu||{},guEx:!!ex,used:[]};
+  S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main',gu:gu||{},guEx:!!ex,used:[],sk:Array(n).fill(0),bs:Array(n).fill(0),cr:Array(n).fill(0),lg:[],x2:false,x2a:false,ux:Array(n).fill(0),uc:Array(n).fill(0),chg:false,req:null,ft:null,el:null};
   gameSub();R();
  };
  try{DB.doc('pool/used').get().then(sn=>go(sn.exists?sn.data():{},sn.exists)).catch(()=>go({},false))}catch(e){go({},false)}
@@ -202,7 +259,7 @@ function startTimer(){
  clearInterval(T);
  T=setInterval(()=>{
   S.tm--;
-  if(S.tm<=0){clearInterval(T);S.run=false;S.to=true;S.rv=true;S.tm=0;beep(300,500);R();return}
+  if(S.tm<=0){clearInterval(T);S.run=false;S.to=true;S.rv=true;S.tm=0;S.el=null;beep(300,500);R();return}
   const e=$('tm');if(e){e.textContent=S.tm;if(e.parentElement)e.parentElement.className='big'+(S.tm<=5?' warn':'')}
   const b=$('tb2');if(b)b.style.width=(S.tm/30*100)+'%';
   if(S.tm<=5)beep(880,100);
@@ -227,7 +284,7 @@ function kickDo(){
  const u=S.uids[i];if(!u)return R();
  const wasCur=(i===S.t);
  LB.kicked=(LB.kicked||[]).concat([u]);
- ['names','mem','uids','sc','pk','cs'].forEach(k=>S[k].splice(i,1));
+ ['names','mem','uids','sc','pk','cs','sk','bs','cr','ux','uc'].forEach(k=>{if(S[k])S[k].splice(i,1)});S.req=null;S.x2a=false;if(S.ft){if(S.ft.i===i)S.ft=null;else if(S.ft.i>i)S.ft.i--}
  if(S.names.length<2||S.ph==='tie'){clearInterval(T);S.end=true;S.ph='end';S.win=null}
  else if(wasCur){clearInterval(T);S.t=S.t%S.names.length;S.ph='pick';S.l=null;S.d=null;S.rv=false;S.to=false}
  else if(i<S.t)S.t--;
@@ -252,7 +309,7 @@ function savedBox(){
 function hostResume(){
  const sv=LB.saved;if(!sv)return;
  let o;try{o=JSON.parse(sv.d.st)}catch(e){LB.saved=null;return hostLobby()}
- S=o;LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
+ S=o;['sk','bs','cr','ux','uc'].forEach(k=>{if(!S[k])S[k]=Array((S.names||[]).length).fill(0)});S.lg=S.lg||[];LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
  if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
  try{DB.doc('pool/used').get().then(sn=>{if(sn.exists){S.gu=Object.assign({},S.gu||{},sn.data());S.guEx=true}}).catch(()=>{})}catch(e){}
@@ -272,6 +329,7 @@ function pickEv(i,sn){
  if(i!==S.t)return;
  if(x.kind==='l'&&S.ph==='pick'&&S.cs[S.t][x.l]===0)pickL(x.l);
  else if(x.kind==='d'&&S.ph==='lvl')ask(x.d?1:0);
+ else if(x.kind==='h')hostReq(x.h);
 }
 function gameSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(S.pp);S.sq=[];S.ini=[];
@@ -317,7 +375,7 @@ function teamPlay(){
  const s=TS.room,g=$('g'),i=(s.uids||[]).indexOf(DB.uid);
  if(i<0){g.innerHTML=BX('اللعبة بدأت وفريقكم غير مسجّل فيها. انتظروا اللعبة القادمة.');TS.hasT=false;return}
  const nm=s.names||[],sc=s.sc||[],my=s.t===i,ci=i%4;
- const key=JSON.stringify([s.t,s.ph,s.sc,s.pk,s.cs,s.l,s.d,s.ok,s.end,!!s.run,!!s.rv,!!s.to,s.rs,s.names,s.win]);
+ const key=JSON.stringify([s.t,s.ph,s.sc,s.pk,s.cs,s.l,s.d,s.ok,s.end,!!s.run,!!s.rv,!!s.to,s.rs,s.names,s.win,s.x2,s.x2a,s.ux,s.uc,s.cg,s.rq,s.lg,s.sk,s.bs,s.cr,s.ft]);
  const first=TS.k===undefined;
  if(!first){
   if(s.rs&&s.rs!==TS.rs){burst(s.ok?'🎉':'😬');beep(s.ok?880:220,300);if(s.t===i)vib(s.ok?[100,50,100]:[300])}
@@ -336,24 +394,33 @@ function teamPlay(){
  let st='';
  if(s.end){const m=Math.max(...sc),w=s.win>=0?[s.win]:nm.map((_,j)=>j).filter(j=>sc[j]===m);st=`<div class="st big2 on">🏆 ${w.length>1?'تعادل':'الفائز'}: ${w.map(j=>AV[j%4]+' '+E(nm[j])).join('، ')}</div>`}
  else if(s.ph==='tie')st='<div class="st on">⚖️ سؤال فاصل — اسمعوا المنظم</div>';
- else if(s.ph==='pick')st=my?'<div class="st on">🎯 دوركم! اختاروا حرفاً من لوحتكم</div>':`<div class="st">👀 الدور على ${ca} ${cur} — يختارون حرفاً</div>`;
- else if(s.ph==='lvl')st=my?`<div class="st on">اختاروا مستوى السؤال للحرف «${L[s.l]}»</div><div class="row"><button class="lv e" onclick="tpick('d',null,0)">🟢 سهل · 100</button><button class="lv h" onclick="tpick('d',null,1)">🔴 صعب · 300</button></div>`:`<div class="st">${ca} ${cur} اختاروا الحرف «${L[s.l]}» — بانتظار المستوى…</div>`;
+ else if(s.ph==='pick')st=my?'<div class="st on">🎯 دوركم! اختاروا حرفاً من لوحتكم</div>'+(s.x2a?'<div class="st on">✖️2 مضاعفة مفعّلة — تُخصم عند اختيار المستوى</div>':txbtn(s,sc[i]||0,i)):`<div class="st">👀 الدور على ${ca} ${cur} — يختارون حرفاً</div>`;
+ else if(s.ph==='lvl')st=my?`<div class="st on">اختاروا مستوى السؤال للحرف «${L[s.l]}»</div><div class="row"><button class="lv e" ${s.x2a&&(sc[i]||0)<50?'disabled style="opacity:.45"':''} onclick="tpick('d',null,0)">🟢 سهل · 100${s.x2a?' (−50)':''}</button><button class="lv h" ${s.x2a&&(sc[i]||0)<200?'disabled style="opacity:.45"':''} onclick="tpick('d',null,1)">🔴 صعب · 300${s.x2a?' (−200)':''}</button></div>`:`<div class="st">${ca} ${cur} اختاروا الحرف «${L[s.l]}» — بانتظار المستوى…</div>`;
  else if(s.ph==='q'){
-  const lv=s.d?'🔴 صعب':'🟢 سهل',hd=`<div class="st">${ca} ${cur} · حرف «${L[s.l]}» · ${lv}</div>`;
+  const lv=s.d?'🔴 صعب':'🟢 سهل',hd=`<div class="st">${ca} ${cur} · حرف «${L[s.l]}» · ${lv}${s.x2?' · ✖️2 مفعّلة':''}${s.cg?' · 🔄 تم تغيير السؤال':''}</div>`;
   if(s.rv)st=hd+`<div class="st">${s.to?'⏰ انتهى الوقت!':'🔍 المنظم يكشف الإجابة…'}</div>`;
   else if(s.run){TS.hasT=true;st=hd+`<div id="tbig" class="big${s.tm<=5?' warn':''}">⏱ <span id="ttm">${s.tm}</span></div><div class="bar"><i id="tbar" style="width:${s.tm/30*100}%"></i></div>`}
-  else st=hd+'<div class="st on"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم… سيبدأ الوقت قريباً</div>';
+  else{st=hd+'<div class="st on"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم… سيبدأ الوقت قريباً</div>';if(my)st+=tbtns(s,sc[i]||0,i)}
  }
  else if(s.ph==='res')st=`<div class="st ${s.ok?'okc':'badc'}">${s.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة'} — ${ca} ${cur}</div>`;
  const row=(s.cs&&s.cs[i])||'0'.repeat(28),on=my&&s.ph==='pick';
  let h=`<div class="turn" style="background:${CL[ci]}">${AV[ci]} ${E(nm[i]||'')} · <b>${sc[i]||0}</b> نقطة</div>`;
- h+=`<div class="box">${st}<small id="te">${E(TS.err)} متبقي ${10-((s.pk||[])[i]||0)} اختيارات</small></div>`;
+ h+=`<div class="box">${st}<small id="te">${E(TS.err)} متبقي ${10-((s.pk||[])[i]||0)} اختيارات</small>${(s.lg&&s.lg.length)?'<br><small>'+s.lg.slice(-2).map(E).join('<br>')+'</small>':''}</div>`;
  h+=`<div class="bd t${ci}${on?' on':''}"><div class="gr">`+L.map((c,k)=>{const v=row[k];return `<button class="c s${v}${on&&v==='0'?' av':''}" ${on&&v==='0'?`onclick="tpick('l',${k})"`:'disabled'}>${c}</button>`}).join('')+'</div></div>';
- h+='<div class="box">'+nm.map((n2,j)=>`<div class="sbr${j===s.t&&!s.end?' cur':''}"><span>${AV[j%4]} ${E(n2)}</span><b>${sc[j]||0}</b></div>`).join('')+'</div>';
+ h+='<div class="box">'+nm.map((n2,j)=>`<div class="sbr${j===s.t&&!s.end?' cur':''}"><span>${AV[j%4]} ${E(n2)}${((s.sk||[])[j]>=3)?' 🔥'+s.sk[j]:''}</span><b>${sc[j]||0}</b></div>`).join('')+'</div>';
+ if(s.end)h+=summ(nm,sc,s.bs||[],s.cr||[],s.ft||null,s.win>=0?s.win:null).html;
  g.innerHTML=h;
 }
-async function tpick(kind,l,d){
- try{await DB.doc('picks/'+DB.uid).set({kind,l:l===null?0:l,d:d||0,seq:Date.now()});TS.err='✔️ تم إرسال اختياركم…';teamPlay()}catch(e){TS.err='ما قدرت أرسل اختيارك؛ قولوا الحرف للمنظم.';teamPlay()}
+function txbtn(s,bal,i){
+ const pend=!!s.rq,used=!!((s.ux||[])[i]),dis=pend||used||bal<50;
+ return '<div class="row"><button class="lv" style="background:var(--pr);'+(dis?'opacity:.45':'')+'" '+(dis?'disabled':'')+' onclick="tpick(\'h\',null,0,\'x2\')">✖️2 مضاعفة النقاط</button></div><small>'+(pend?'⏳ بانتظار موافقة المنظم…':used?'استخدمتم المضاعفة في هذه اللعبة':bal<50?'رصيدكم لا يكفي (أقل سعر 50)':'مرة واحدة في اللعبة · تُخصم عند اختيار المستوى: 50 للسهل / 200 للصعب')+'</small>';
+}
+function tbtns(s,bal,i){
+ const pc=s.d?100:50,pend=!!s.rq,used=!!((s.uc||[])[i]),dis=pend||used||bal<pc;
+ return '<div class="row"><button class="lv" style="background:var(--pr);'+(dis?'opacity:.45':'')+'" '+(dis?'disabled':'')+' onclick="tpick(\'h\',null,0,\'chg\')">🔄 تغيير السؤال · −'+pc+'</button></div><small>'+(pend?'⏳ بانتظار موافقة المنظم…':used?'استخدمتم تغيير السؤال في هذه اللعبة':bal<pc?'رصيدكم لا يكفي':'مرة واحدة في اللعبة · قبل بدء المؤقت')+'</small>';
+}
+async function tpick(kind,l,d,h){
+ try{await DB.doc('picks/'+DB.uid).set({kind,l:l===null?0:l,d:d||0,h:h||'',seq:Date.now()});TS.err='✔️ تم إرسال اختياركم…';teamPlay()}catch(e){TS.err='ما قدرت أرسل اختيارك؛ قولوا الحرف للمنظم.';teamPlay()}
 }
 BANK.forEach(x=>{const k=x.s+'|'+x.l+'|'+x.d;(BK[k]=BK[k]||[]).push([x.q,x.a])});
 (function(){
