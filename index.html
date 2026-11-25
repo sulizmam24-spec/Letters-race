@@ -61,6 +61,11 @@ button:active:not(:disabled){transform:scale(.94)}
 .sbr{display:flex;justify-content:space-between;padding:6px 8px;border-radius:8px}
 .sbr.cur{background:var(--hl);color:var(--tx);font-weight:700}
 .cf{position:fixed;top:-30px;animation:fall 2.4s linear forwards;pointer-events:none;z-index:99}
+body.tv{max-width:1500px;padding:18px}
+.tv h1{font-size:34px}.tv .st{font-size:26px;padding:14px}.tv .big2{font-size:34px}.tv .big{font-size:150px}.tv .bd{padding:14px}.tv .hd{font-size:26px}.tv .tvs{font-size:34px}.tv small{font-size:16px}
+.tv .boards{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.tv .c{display:block;text-align:center;font-size:24px;padding:8px 0;border:1px solid var(--ln);border-radius:8px;background:var(--cd);color:var(--tx)}
+.tv .c.s1{background:var(--ok);color:#fff;border-color:var(--ok)}.tv .c.s2{background:var(--bad);color:#fff;border-color:var(--bad);text-decoration:line-through}
 </style></head><body>
 <h1><span class="logo">🕯️📚</span> سباق الحروف</h1>
 <div id="q"></div><div id="g"></div><div id="tb" class="row"></div>
@@ -233,7 +238,7 @@ function hostLobby(){
  if(!DB||!DB.uid)h+='<div class="v">⏳ جاري الاتصال بقاعدة البيانات…</div>';
  else if(!LB.session)h+='<div class="row"><button class="p" onclick="hostOpen()">فتح التسجيل للفرق</button></div><small>بعد الفتح يظهر لك رابط خاص بغرفتك، ترسله للفرق ويسجّل ويضغط «جاهز».</small>';
  else{
-  h+=`<div class="v">🔗 رابط فريقك (أرسله للاعبين)</div><input id="lk" readonly value="${E(teamLink())}" onclick="this.select()"><div class="row"><button id="cpb" onclick="copyLink()">📋 انسخ الرابط</button></div><div class="v">الفرق المسجّلة (${tm.length}/4)</div>`;
+  h+=`<div class="v">🔗 رابط فريقك (أرسله للاعبين)</div><input id="lk" readonly value="${E(teamLink())}" onclick="this.select()"><div class="row"><button id="cpb" onclick="copyLink()">📋 انسخ الرابط</button></div><div id="hqr" style="width:210px;margin:8px auto">${QR.svg(teamLink())}</div><small>أو اجعل اللاعبين يصوّرون هذا الباركود بكاميرا الجوال</small><div class="v">📺 رابط شاشة العرض (افتحه على التلفزيون أو اللابتوب)</div><input id="tvl" readonly value="${E(tvLink())}" onclick="this.select()"><div class="row"><button id="tvb" onclick="copyTv()">📋 انسخ رابط الشاشة</button></div><div class="v">الفرق المسجّلة (${tm.length}/4)</div>`;
   h+=tm.length?tm.map((t,ti)=>`<div class="row"><span>${t.ready?'✅':'⏳'} <b onclick="kickAsk(${ti})" style="cursor:pointer;text-decoration:underline dotted">${E(t.name||'')}</b></span><small>${E(t.members||'')}</small></div>`).join(''):'<small>بانتظار تسجيل الفرق…</small>';
   h+=`<div class="row"><button class="p" ${all?'':'disabled'} onclick="hostStart()">ابدأ اللعبة</button></div><small>${all?'كل الفرق جاهزة':'تبدأ عندما يسجّل فريقان أو أكثر ويضغط الجميع «جاهز»'}</small>`;
  }
@@ -290,7 +295,7 @@ function kickDo(){
  else if(i<S.t)S.t--;
  gameSub();R();
 }
-function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button></div><small>'+(S.recyc?'⚠️ انتهت أسئلة هذا الحرف؛ أُعيد سؤال قديم. ':'')+'📚 المتبقي: '+poolStats(S.gu).left+' سؤالاً</small>':''}
+function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">🔄 تحديث الفرق والنتائج</button><button id="tvb" onclick="copyTv()">📺 انسخ رابط شاشة العرض</button><input id="tvl" readonly value="'+E(tvLink())+'" style="position:absolute;left:-9999px"></div><small>'+(S.recyc?'⚠️ انتهت أسئلة هذا الحرف؛ أُعيد سؤال قديم. ':'')+'📚 المتبقي: '+poolStats(S.gu).left+' سؤالاً</small>':''}
 function save(){
  if(!DB||!DB.uid||!S||!S.room)return;
  const o={};Object.keys(S).forEach(k=>{if(k!=='sq'&&k!=='ini'&&k!=='pp')o[k]=S[k]});
@@ -335,6 +340,154 @@ function gameSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(S.pp);S.sq=[];S.ini=[];
  S.uids.forEach((u,i)=>{try{unsub.push(DB.doc('picks/'+u).onSnapshot(sn=>pickEv(i,sn)))}catch(e){}});
  S.pp=setInterval(()=>{if(!S||document.hidden)return;const i=S.t,u=S.uids[i];if(!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}},2000);
+}
+const QR=(function(){
+ const EXP=new Array(512),LOG=new Array(256);
+ (function(){let x=1;for(let i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&256)x^=0x11D}for(let i=255;i<512;i++)EXP[i]=EXP[i-255]})();
+ const gm=(a,b)=>(a&&b)?EXP[LOG[a]+LOG[b]]:0;
+ function rsGen(n){let g=[1];for(let i=0;i<n;i++){const ng=new Array(g.length+1).fill(0);for(let j=0;j<g.length;j++){ng[j]^=g[j];ng[j+1]^=gm(g[j],EXP[i])}g=ng}return g}
+ function rsEnc(d,n){const g=rsGen(n),r=new Array(n).fill(0);for(const b of d){const f=b^r[0];r.shift();r.push(0);if(f)for(let i=0;i<n;i++)r[i]^=gm(g[i+1],f)}return r}
+ const T={
+  L:{1:[7,[[1,19]]],2:[10,[[1,34]]],3:[15,[[1,55]]],4:[20,[[1,80]]],5:[26,[[1,108]]],6:[18,[[2,68]]],7:[20,[[2,78]]],8:[24,[[2,97]]],9:[30,[[2,116]]],10:[18,[[2,68],[2,69]]]},
+  M:{1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]]}
+ };
+ const AP={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+ const dig=x=>{let d=0;while(x){d++;x>>>=1}return d};
+ function bchType(data){let d=data<<10;while(dig(d)-dig(0x537)>=0)d^=0x537<<(dig(d)-dig(0x537));return((data<<10)|d)^0x5412}
+ function bchVer(v){let d=v<<12;while(dig(d)-dig(0x1F25)>=0)d^=0x1F25<<(dig(d)-dig(0x1F25));return(v<<12)|d}
+ const MASK=[(r,c)=>(r+c)%2==0,(r,c)=>r%2==0,(r,c)=>c%3==0,(r,c)=>(r+c)%3==0,(r,c)=>(Math.floor(r/2)+Math.floor(c/3))%2==0,(r,c)=>(r*c)%2+(r*c)%3==0,(r,c)=>((r*c)%2+(r*c)%3)%2==0,(r,c)=>((r+c)%2+(r*c)%3)%2==0];
+ function utf8(s){return Array.from(unescape(encodeURIComponent(s))).map(c=>c.charCodeAt(0))}
+ function codewords(bytes,v,ecl){
+  const [ecn,groups]=T[ecl][v];let total=0;groups.forEach(g=>total+=g[0]*g[1]);
+  const bits=[];const put=(val,len)=>{for(let i=len-1;i>=0;i--)bits.push((val>>>i)&1)};
+  put(4,4);put(bytes.length,v<10?8:16);bytes.forEach(b=>put(b,8));
+  const cap=total*8;put(0,Math.min(4,cap-bits.length));while(bits.length%8)bits.push(0);
+  const data=[];for(let i=0;i<bits.length;i+=8){let x=0;for(let j=0;j<8;j++)x=(x<<1)|bits[i+j];data.push(x)}
+  for(let p=0;data.length<total;p++)data.push(p%2?0x11:0xEC);
+  const blocks=[],ecs=[];let off=0;
+  groups.forEach(g=>{for(let i=0;i<g[0];i++){const b=data.slice(off,off+g[1]);off+=g[1];blocks.push(b);ecs.push(rsEnc(b,ecn))}});
+  const out=[];const mx=Math.max(...blocks.map(b=>b.length));
+  for(let i=0;i<mx;i++)blocks.forEach(b=>{if(i<b.length)out.push(b[i])});
+  for(let i=0;i<ecn;i++)ecs.forEach(e=>out.push(e[i]));
+  return out;
+ }
+ function build(v,ecl,cw,mask){
+  const n=17+4*v,m=[];for(let i=0;i<n;i++)m.push(new Array(n).fill(null));
+  const fin=(r0,c0)=>{for(let r=-1;r<=7;r++)for(let c=-1;c<=7;c++){const rr=r0+r,cc=c0+c;if(rr<0||cc<0||rr>=n||cc>=n)continue;m[rr][cc]=(r>=0&&r<=6&&(c==0||c==6)||c>=0&&c<=6&&(r==0||r==6)||r>=2&&r<=4&&c>=2&&c<=4)}};
+  fin(0,0);fin(n-7,0);fin(0,n-7);
+  const pos=AP[v];
+  pos.forEach(r=>pos.forEach(c=>{if(m[r][c]!==null)return;for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++)m[r+i][c+j]=(Math.max(Math.abs(i),Math.abs(j))!=1)}));
+  for(let i=8;i<n-8;i++){if(m[i][6]===null)m[i][6]=i%2==0;if(m[6][i]===null)m[6][i]=i%2==0}
+  const fmt=bchType(((ecl==='L'?1:0)<<3)|mask);
+  for(let i=0;i<15;i++){const b=((fmt>>i)&1)==1;
+   if(i<6)m[i][8]=b;else if(i<8)m[i+1][8]=b;else m[n-15+i][8]=b;
+   if(i<8)m[8][n-i-1]=b;else if(i<9)m[8][15-i-1+1]=b;else m[8][15-i-1]=b}
+  m[n-8][8]=true;
+  if(v>=7){const vb=bchVer(v);for(let i=0;i<18;i++){const b=((vb>>i)&1)==1;m[Math.floor(i/3)][i%3+n-8-3]=b;m[i%3+n-8-3][Math.floor(i/3)]=b}}
+  let inc=-1,row=n-1,bi=7,by=0;
+  for(let col=n-1;col>0;col-=2){if(col==6)col--;
+   while(true){for(let c=0;c<2;c++){if(m[row][col-c]===null){let d=false;if(by<cw.length)d=((cw[by]>>>bi)&1)==1;if(MASK[mask](row,col-c))d=!d;m[row][col-c]=d;bi--;if(bi==-1){by++;bi=7}}}
+    row+=inc;if(row<0||n<=row){row-=inc;inc=-inc;break}}}
+  return m;
+ }
+ function penalty(m){
+  const n=m.length;let p=0;
+  for(let r=0;r<n;r++){let run=1;for(let c=1;c<n;c++){if(m[r][c]===m[r][c-1])run++;else{if(run>=5)p+=3+run-5;run=1}}if(run>=5)p+=3+run-5}
+  for(let c=0;c<n;c++){let run=1;for(let r=1;r<n;r++){if(m[r][c]===m[r-1][c])run++;else{if(run>=5)p+=3+run-5;run=1}}if(run>=5)p+=3+run-5}
+  for(let r=0;r<n-1;r++)for(let c=0;c<n-1;c++){const x=m[r][c];if(x===m[r][c+1]&&x===m[r+1][c]&&x===m[r+1][c+1])p+=3}
+  const pa=[1,0,1,1,1,0,1,0,0,0,0],pb=[0,0,0,0,1,0,1,1,1,0,1];
+  for(let r=0;r<n;r++)for(let c=0;c<=n-11;c++){let a=true,b=true;for(let k=0;k<11;k++){const x=m[r][c+k]?1:0;if(x!==pa[k])a=false;if(x!==pb[k])b=false}if(a)p+=40;if(b)p+=40}
+  for(let c=0;c<n;c++)for(let r=0;r<=n-11;r++){let a=true,b=true;for(let k=0;k<11;k++){const x=m[r+k][c]?1:0;if(x!==pa[k])a=false;if(x!==pb[k])b=false}if(a)p+=40;if(b)p+=40}
+  let d=0;for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m[r][c])d++;
+  p+=Math.floor(Math.abs(d*100/(n*n)-50)/5)*10;
+  return p;
+ }
+ function make(text,ecl){
+  ecl=ecl||'M';const bytes=utf8(text);let v=0;
+  for(let k=1;k<=6;k++){let t=0;T[ecl][k][1].forEach(g=>t+=g[0]*g[1]);if(4+(k<10?8:16)+8*bytes.length<=8*t){v=k;break}}
+  if(!v)return null;
+  const cw=codewords(bytes,v,ecl);let best=null,bp=1e9;
+  for(let mk=0;mk<8;mk++){const m=build(v,ecl,cw,mk),pp=penalty(m);if(pp<bp){bp=pp;best=m}}
+  return best;
+ }
+ function svg(text,px,ecl){
+  const m=make(text,ecl);if(!m)return '';
+  const n=m.length,q=4,s=n+2*q;let p='';
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m[r][c])p+='M'+(c+q)+' '+(r+q)+'h1v1h-1z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+s+' '+s+'" width="100%" height="100%" shape-rendering="crispEdges" style="background:#fff;border-radius:12px"><rect width="'+s+'" height="'+s+'" fill="#fff"/><path d="'+p+'" fill="#000"/></svg>';
+ }
+ return {make:make,svg:svg};
+})();
+if(typeof module!=='undefined')module.exports=QR;
+
+const TVMODE=location.hash.indexOf('#tv')===0;
+let TV={rid:'',room:null,teams:[],un:[],k:'',rs:0,audio:false,lt:-1,endd:false};
+function tvAudio(){TV.audio=true;beep(660,200);TV.k='';tvRender()}
+function tvLink(){return location.href.split('#')[0]+'#tv='+LB.rid}
+function copyTv(){
+ const l=tvLink();
+ try{navigator.clipboard.writeText(l).then(()=>{const b=$('tvb');if(b)b.textContent='✅ تم نسخ رابط الشاشة'}).catch(()=>{try{const i=$('tvl');i.select();document.execCommand('copy')}catch(e){}})}
+ catch(e){try{const i=$('tvl');i.select();document.execCommand('copy')}catch(x){}}
+}
+function tvStart(){
+ try{document.body.classList.add('tv')}catch(e){}
+ TV.rid=(location.hash.split('=')[1]||'').toUpperCase();
+ if(!TV.rid){$('g').innerHTML=BX('<div class="v">📺 <b>شاشة العرض</b></div><input id="tvc" placeholder="رمز الغرفة (يظهر عند المنظم)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="tvCode()">ادخل</button></div>');return}
+ try{TV.un.push(DB.doc('rooms/'+TV.rid).onSnapshot(sn=>{TV.room=sn.exists?sn.data():null;tvRender()},()=>{}))}catch(e){}
+ try{TV.un.push(DB.collection('teams').where('room','==',TV.rid).onSnapshot(sn=>{TV.teams=sn.docs.map(d=>Object.assign({id:d.id},d.data()));tvRender()},()=>{}))}catch(e){}
+ TV.poll=setInterval(()=>{
+  if(document.hidden)return;
+  try{
+   DB.doc('rooms/'+TV.rid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TV.room)){TV.room=d;tvRender()}}).catch(()=>{});
+   if(!TV.room||TV.room.mode!=='game')DB.collection('teams').where('room','==',TV.rid).get().then(sn=>{const l=sn.docs.map(d=>Object.assign({id:d.id},d.data()));if(JSON.stringify(l)!==JSON.stringify(TV.teams)){TV.teams=l;tvRender()}}).catch(()=>{});
+  }catch(e){}
+ },3000);
+ tvRender();
+}
+function tvCode(){const v=($('tvc').value||'').trim().toUpperCase();if(!v)return;try{location.hash='#tv='+v}catch(e){}tvStart()}
+function tvRender(){
+ const g=$('g'),r=TV.room;
+ if(!DB||!DB.uid){g.innerHTML=BX('⏳ جاري الاتصال…');return}
+ if(!r){g.innerHTML=BX('⏳ بانتظار الغرفة '+E(TV.rid)+'…');return}
+ const snd=TV.audio?'':'<div class="row"><button onclick="tvAudio()">🔊 تفعيل الصوت</button></div>';
+ if(r.mode!=='game'){
+  const tl=TV.teams.filter(t=>t.session===r.session&&!(r.kicked||[]).includes(t.id)).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(0,4);
+  const link=location.href.split('#')[0]+'#team='+TV.rid;
+  g.innerHTML='<div class="box" style="text-align:center"><div class="big2">🕯️📚 سباق الحروف</div><div class="v">📱 صوّروا الباركود بكاميرا الجوال للتسجيل</div><div id="tvqr" style="width:min(62vmin,440px);margin:10px auto">'+QR.svg(link)+'</div><div class="v">أو ادخلوا رمز الغرفة: <b style="font-size:40px;letter-spacing:6px">'+E(TV.rid)+'</b></div><div class="v" style="direction:ltr;word-break:break-all"><small>'+E(link)+'</small></div></div><div class="boards">'+(tl.length?tl.map((t,i)=>'<div class="bd t'+(i%4)+'"><div class="hd"><span>'+AV[i%4]+' <b>'+E(t.name||'')+'</b></span><span>'+(t.ready?'✅ جاهز':'⏳')+'</span></div><small>'+E(t.members||'')+'</small></div>').join(''):'<div class="box" style="text-align:center">بانتظار تسجيل الفرق…</div>')+'</div>'+snd;
+  TV.k='';return;
+ }
+ const nm=r.names||[],sc=r.sc||[],cs=r.cs||[],sk=r.sk||[],ci=(r.t||0)%4;
+ const key=JSON.stringify([r.t,r.ph,sc,r.pk,cs,r.l,r.d,r.ok,r.end,!!r.run,!!r.rv,!!r.to,r.rs,nm,r.win,r.x2,r.x2a,r.ux,r.uc,r.cg,r.rq,r.lg,sk,r.bs,r.cr,r.ft,TV.audio]);
+ const first=TV.k==='';
+ if(!first){
+  if(r.rs&&r.rs!==TV.rs){burst(r.ok?((sk[r.t]>=3)?'🔥':'🎉'):'😬');if(TV.audio)beep(r.ok?880:220,300)}
+  if(r.end&&!TV.endd){burst('🏆');if(TV.audio)beep(990,400)}
+ }
+ TV.rs=r.rs;TV.endd=!!r.end;
+ if(TV.k===key&&$('tvtm')){
+  $('tvtm').textContent=r.tm;const bb=$('tvbar');if(bb)bb.style.width=(r.tm/30*100)+'%';
+  const pe=$('tvtm').parentElement;if(pe)pe.className='big'+(r.tm<=5?' warn':'');
+  if(TV.audio&&r.tm<=5&&r.tm>0&&r.tm!==TV.lt)beep(880,90);TV.lt=r.tm;return;
+ }
+ TV.k=key;
+ const cur=E(nm[r.t]||''),ca=AV[ci];let st='';
+ if(r.end)st='';
+ else if(r.ph==='tie')st='<div class="st on big2">⚖️ تعادل! سؤال فاصل</div>';
+ else if(r.ph==='pick')st='<div class="st on big2">🎯 الدور على '+ca+' <b>'+cur+'</b> — يختارون حرفاً</div>';
+ else if(r.ph==='lvl')st='<div class="st on big2">'+ca+' '+cur+' اختاروا الحرف «<b>'+L[r.l]+'</b>» — يختارون المستوى</div>';
+ else if(r.ph==='q'){
+  const hd='<div class="st big2">'+ca+' '+cur+' · حرف «<b>'+L[r.l]+'</b>» · '+(r.d?'🔴 صعب · 300':'🟢 سهل · 100')+(r.x2?' · ✖️2 مفعّلة':'')+(r.cg?' · 🔄 تم التغيير':'')+'</div>';
+  if(r.rv)st=hd+'<div class="st big2">'+(r.to?'⏰ انتهى الوقت!':'🔍 المنظم يكشف الإجابة…')+'</div>';
+  else if(r.run)st=hd+'<div class="big'+(r.tm<=5?' warn':'')+'">⏱ <span id="tvtm">'+r.tm+'</span></div><div class="bar"><i id="tvbar" style="width:'+(r.tm/30*100)+'%"></i></div>';
+  else st=hd+'<div class="st on big2"><span class="bounce">🕯️</span> اسمعوا السؤال من المنظم…</div>'+(r.rq?'<div class="st on">🙋 طلب مساعدة بانتظار موافقة المنظم…</div>':'');
+ }
+ else if(r.ph==='res')st='<div class="st big2 '+(r.ok?'okc':'badc')+'">'+(r.ok?'✅ إجابة صحيحة!':'❌ إجابة خاطئة')+' — '+ca+' '+cur+'</div>';
+ if((r.ph==='pick'||r.ph==='lvl')&&r.x2a)st+='<div class="st on">✖️2 مضاعفة مفعّلة لهذا الفريق</div>';
+ if(r.ph==='pick'&&r.rq==='x2')st+='<div class="st on">🙋 طلب مضاعفة بانتظار موافقة المنظم…</div>';
+ const boards='<div class="boards">'+nm.map((n2,i)=>{const row=cs[i]||'0'.repeat(28);return '<div class="bd t'+(i%4)+((i===r.t&&!r.end)?' on':'')+'"><div class="hd"><span>'+AV[i%4]+' '+E(n2)+((sk[i]>=3)?' 🔥'+sk[i]:'')+'</span><b class="tvs">'+(sc[i]||0)+'</b></div><div class="gr">'+L.map((c,k)=>{const v=row[k],hot=(i===r.t&&r.l===k&&(r.ph==='lvl'||r.ph==='q'));return '<span class="c s'+v+(hot?' av':'')+'">'+c+'</span>'}).join('')+'</div><small>متبقي '+(10-((r.pk||[])[i]||0))+' اختيارات</small></div>'}).join('')+'</div>';
+ const lgh=(r.lg&&r.lg.length)?'<div class="box"><small>'+r.lg.slice(-3).map(E).join('<br>')+'</small></div>':'';
+ const endh=r.end?summ(nm,sc,r.bs||[],r.cr||[],r.ft||null,r.win>=0?r.win:null).html:'';
+ g.innerHTML=(st?'<div class="box">'+st+'</div>':'')+lgh+endh+boards+snd;
 }
 function teamStart(){
  TS.un=TS.un||[];clearInterval(TS.poll);
@@ -430,8 +583,8 @@ BANK.forEach(x=>{const k=x.s+'|'+x.l+'|'+x.d;(BK[k]=BK[k]||[]).push([x.q,x.a])})
   DB={uid:'',
    doc:p=>{const r=fs.doc(p);return{set:d=>r.set(d),update:d=>r.update(d),get:()=>r.get(),onSnapshot:(n,e)=>r.onSnapshot(sn=>n({exists:sn.exists,data:()=>sn.data()}),e)}},
    collection:p=>{const mk=q=>({where:(f,o,v)=>mk(q.where(f,o,v)),onSnapshot:(n,e)=>q.onSnapshot(sn=>n({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}),e),get:()=>q.get().then(sn=>({docs:sn.docs.map(d=>({id:d.id,data:()=>d.data()}))}))});return mk(fs.collection(p))}};
-  au.signInAnonymously().then(c=>{DB.uid=c.user.uid;if(TEAMMODE)teamStart();else if(S&&S.room){gameSub();push()}else hostInit()}).catch(e=>{$('g').innerHTML=BX('تعذّر الاتصال بقاعدة البيانات: '+E(String((e&&e.code)||e)))});
+  au.signInAnonymously().then(c=>{DB.uid=c.user.uid;if(TVMODE)tvStart();else if(TEAMMODE)teamStart();else if(S&&S.room){gameSub();push()}else hostInit()}).catch(e=>{$('g').innerHTML=BX('تعذّر الاتصال بقاعدة البيانات: '+E(String((e&&e.code)||e)))});
  }catch(e){}
 })();
-if(TEAMMODE){$('g').innerHTML='<div class="box">⏳ جاري الاتصال…</div>';$('tb').innerHTML=''}else{setup()}
+if(TVMODE){$('g').innerHTML='<div class="box">⏳ جاري الاتصال…</div>';$('tb').innerHTML='';try{document.body.classList.add('tv')}catch(e){}}else if(TEAMMODE){$('g').innerHTML='<div class="box">⏳ جاري الاتصال…</div>';$('tb').innerHTML=''}else{setup()}
 </script></body></html>
