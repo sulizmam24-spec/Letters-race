@@ -29,6 +29,7 @@ input{font:inherit;width:100%;box-sizing:border-box;padding:10px;border-radius:1
 .bd{background:var(--cd);border:2px solid var(--ln);border-radius:14px;padding:10px}
 .bd.on{border-color:var(--pr);box-shadow:0 0 0 3px var(--hl)}
 .hd{display:flex;justify-content:space-between;font-size:17px;margin-bottom:8px}
+.hq{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;cursor:help}
 .gr{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .c{padding:6px 0;font-size:16px}
 .c.s1{background:var(--ok);color:#fff;border-color:var(--ok)}
@@ -117,7 +118,7 @@ function pickL(i){if(S.gl===i&&!S.glu){askGold(i);return}S.l=i;S.gd=false;S.ph='
 function ask(d){
  if(S.x2a){const p=d?200:50;if((S.sc[S.t]||0)<p){lg('رصيد '+S.names[S.t]+' لا يكفي لهذا المستوى مع المضاعفة');R();return}S.sc[S.t]-=p;S.x2=true;S.x2a=false;lg(AV[S.t%4]+' '+S.names[S.t]+' دفعوا '+p+' للمضاعفة ✖️2')}
  else S.x2=false;
- S.d=d;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;S.sl='';S.bk=0;S.gd=false;clearInterval(T);R();
+ S.d=d;S.cur=pick();rec();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;S.sl='';S.bk=0;S.gd=false;clearInterval(T);R();
 }
 function rev(){clearInterval(T);S.el=S.run?30-S.tm:null;S.run=false;S.rv=true;S.req=null;R()}
 function tmStart(){if(S.ph!=='q'||S.rv||S.req)return;S.el=null;S.run=true;S.tm=30;S.to=false;beep(520,120);startTimer();R()}
@@ -129,9 +130,38 @@ function lvTxt(d){return d===2?'⭐ مستحيل · 500':d?'🔴 صعب · 300':
 function askGold(i){
  S.l=i;S.glu=true;S.gd=true;
  if(S.x2a){S.x2a=false;S.ux[S.t]=0;lg('المضاعفة لا تنطبق على الحرف الذهبي وعادت لكم')}
- S.x2=false;S.d=2;S.cur=pick();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;S.sl='';S.bk=0;clearInterval(T);
+ S.x2=false;S.d=2;S.cur=pick();rec();S.pk[S.t]++;S.ph='q';S.rv=false;S.to=false;S.run=false;S.tm=30;S.chg=false;S.req=null;S.el=null;S.sl='';S.bk=0;clearInterval(T);
  lg('⭐ '+AV[S.t%4]+' '+S.names[S.t]+' اختاروا الحرف الذهبي! سؤال مستحيل بـ500 نقطة');burst('⭐');beep(990,300);R();
 }
+function rec(){
+ if(!S||!S.cur)return;S.hq=S.hq||{};
+ S.hq[S.t+'|'+S.l]={q:S.cur[0],a:S.cur[1],d:S.d,ok:null,p:0,x:0};
+}
+function hqHtml(t,l){
+ if(typeof S==='undefined'||!S)return '';
+ const h=S.hq&&S.hq[t+'|'+l],nm=(S.names&&S.names[t])||'',head='<div class="v"><b>حرف «'+L[l]+'»</b> · '+AV[t%4]+' '+E(nm);
+ if(!h)return head+'</div><small>لا يوجد سجل لسؤال هذا الحرف (لُعب قبل تفعيل الميزة).</small>';
+ const r=h.ok===true?'✅ إجابة صحيحة'+(h.p?' (+'+h.p+(h.x?' ×2':'')+')':''):(h.ok===false?'❌ إجابة خاطئة':'⏳ لم يُحكم عليها بعد');
+ return head+' · '+lvTxt(h.d)+'</div><div class="v">'+r+'</div><div class="q">'+E(h.q)+'</div><div class="v">الإجابة: <b>'+E(String(h.a).split('|').join(' / '))+'</b></div>'+(h.sl?'<small>'+E(h.sl)+'</small>':'');
+}
+(function(){
+ try{
+  let tm=null,auto=null,shown=false;
+  const hide=()=>{clearTimeout(tm);clearTimeout(auto);tm=null;if(shown){const o=document.getElementById('hqo');if(o)o.style.display='none';shown=false}};
+  const show=el=>{
+   const t=parseInt(el.getAttribute('data-t')),l=parseInt(el.getAttribute('data-l'));if(isNaN(t)||isNaN(l))return;
+   let o=document.getElementById('hqo');
+   if(!o){o=document.createElement('div');o.id='hqo';o.style.cssText='position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:120;background:var(--cd);color:var(--tx);border:2px solid var(--pr);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.35);pointer-events:none;direction:rtl;text-align:center';document.body.appendChild(o)}
+   o.innerHTML=hqHtml(t,l);o.style.display='block';shown=true;
+   try{if(navigator.vibrate)navigator.vibrate(15)}catch(e){}
+   auto=setTimeout(hide,20000);
+  };
+  document.addEventListener('pointerdown',e=>{const el=e.target&&e.target.closest?e.target.closest('.hq'):null;hide();if(!el)return;tm=setTimeout(()=>show(el),380)});
+  ['pointerup','pointercancel','touchend','touchcancel','dragstart','scroll'].forEach(ev=>document.addEventListener(ev,hide,true));
+  document.addEventListener('contextmenu',e=>{if(e.target&&e.target.closest&&e.target.closest('.hq'))e.preventDefault()});
+  document.addEventListener('visibilitychange',hide);
+ }catch(e){}
+})();
 function ptsNow(){return (S.d===2?500:S.d?300:100)*(S.x2?2:1)}
 function lg(t){S.lg=(S.lg||[]).concat([t]).slice(-4)}
 function reqPrice(h){return S.d?100:50}
@@ -152,7 +182,7 @@ function reqOk(){
  if(q.h==='x2'){S.ux[t]=1;S.x2a=true;lg(AV[t%4]+' '+S.names[t]+' فعّلوا المضاعفة ✖️2 (تُخصم عند اختيار المستوى)')}
  else{
   if((S.sc[t]||0)<q.p){lg('رصيد '+S.names[t]+' لا يكفي');return R()}
-  S.sc[t]-=q.p;S.uc[t]=1;S.chg=true;S.cur=pick();lg(AV[t%4]+' '+S.names[t]+' دفعوا '+q.p+' لتغيير السؤال 🔄');
+  S.sc[t]-=q.p;S.uc[t]=1;S.chg=true;S.cur=pick();rec();lg(AV[t%4]+' '+S.names[t]+' دفعوا '+q.p+' لتغيير السؤال 🔄');
  }
  R();
 }
@@ -209,7 +239,7 @@ function bellJudge(ok){
  clearInterval(T);S.run=false;const w=S.bw;
  if(ok){S.sc[w]+=50;S.sl='🔔 '+S.names[w]+' سرقوا الإجابة (+50)';burst('🔔');beep(880,300)}
  else{S.sc[w]=Math.max(0,(S.sc[w]||0)-50);S.sl='🔔 '+S.names[w]+' أخطأوا في السرقة (−50)';burst('🙈');beep(220,300)}
- lg(S.sl);S.bk=ok?1:2;S.rs=(S.rs||0)+1;S.ph='res';R();
+ lg(S.sl);{const hk=S.t+'|'+S.l;if(S.hq&&S.hq[hk])S.hq[hk].sl=S.sl}S.bk=ok?1:2;S.rs=(S.rs||0)+1;S.ph='res';R();
 }
 function lgBox(){return (S&&S.lg&&S.lg.length)?'<div class="box"><small>'+S.lg.slice(-2).map(E).join('<br>')+'</small></div>':''}
 function summ(nm,sc,bs,cr,ft,win){
@@ -230,6 +260,7 @@ function summ(nm,sc,bs,cr,ft,win){
 function shareSum(){const x=summ(S.names,S.sc,S.bs||[],S.cr||[],S.ft||null,S.win);try{if(navigator.share){navigator.share({text:x.text}).catch(()=>{});return}}catch(e){}try{navigator.clipboard.writeText(x.text)}catch(e){}}
 function jd(ok){
  clearInterval(T);S.run=false;S.rs=(S.rs||0)+1;S.ok=ok;
+ {const hk=S.t+'|'+S.l;if(S.hq&&S.hq[hk]){S.hq[hk].ok=ok;S.hq[hk].p=ok?ptsNow():0;S.hq[hk].x=S.x2?1:0}}
  if(ok){S.sc[S.t]+=ptsNow();S.cr[S.t]=(S.cr[S.t]||0)+1;S.sk[S.t]=(S.sk[S.t]||0)+1;if(S.sk[S.t]>(S.bs[S.t]||0))S.bs[S.t]=S.sk[S.t];if(S.el!=null&&(!S.ft||S.el<S.ft.s))S.ft={i:S.t,s:S.el,l:S.l}}
  else S.sk[S.t]=0;
  burst(ok?(S.sk[S.t]>=3?'🔥':'🎉'):'😬');beep(ok?880:220,300);S.cs[S.t][S.l]=ok?1:2;S.sl='';S.bk=0;if(!ok&&S.bell!==false&&bellElig().length){startBell();return}S.ph='res';R();
@@ -260,7 +291,7 @@ function R(){
  if(S.ph=='tie')q+=`<div class="v"><b>⚖️ تعادل! سؤال فاصل</b></div><div class="q">${TB[S.tb][0]}</div><small>الأقرب إلى الرقم الصحيح يفوز</small>`+(S.rv?`<div class="v">الإجابة: <b>${TB[S.tb][1]}</b></div><div class="row">`+S.tie.map(i=>`<button class="p" onclick="tbWin(${i})">🏆 ${E(S.names[i])}</button>`).join('')+`<button onclick="tbNext()">سؤال آخر</button></div>`:`<div class="row"><button class="p" onclick="tbRev()">اكشف الإجابة</button></div>`);
  if(S.ph=='end'){q+=summ(S.names,S.sc,S.bs||[],S.cr||[],S.ft||null,S.win).html+'<div class="row"><button class="p" onclick="shareSum()">📤 مشاركة النتيجة</button><button class="p" onclick="setup()">لعبة جديدة</button></div>'}
  $('q').innerHTML=kickBox()+hostBar()+lgBox()+q+'</div>';push();save();
- $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${(S.sk&&S.sk[i]>=3)?' 🔥'+S.sk[i]:''}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return `<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small></div>`).join('')+'</div>';
+ $('g').innerHTML='<div class="boards">'+S.names.map((nm,i)=>`<div class="bd t${i%4}${i==S.t&&!S.end?' on':''}"><div class="hd"><span onclick="kickAsk(${i})" style="cursor:pointer;text-decoration:underline dotted">${AV[i%4]} ${E(nm)}${(S.sk&&S.sk[i]>=3)?' 🔥'+S.sk[i]:''}${S.mem&&S.mem[i]?'<br><small>'+E(S.mem[i])+'</small>':''}</span><span class="sc"><button onclick="adj(${i},-100)">−</button><input type="number" value="${S.sc[i]}" onchange="setS(${i},this.value)"><button onclick="adj(${i},100)">+</button></span></div><div class="gr">`+L.map((c,k)=>{const v=S.cs[i][k],can=i==S.t&&S.ph=='pick'&&!v;return v?`<button class="c s${v} hq" data-t="${i}" data-l="${k}">${c}</button>`:`<button class="c s${v}${can?' av':''}" ${can?`onclick="pickL(${k})"`:'disabled'}>${c}</button>`}).join('')+`</div><small>متبقي ${10-S.pk[i]} اختيارات</small>${i==0?'<br><small>👆 اضغط مطولاً على أي حرف ملعوب لرؤية سؤاله وجوابه</small>':''}</div>`).join('')+'</div>';
 }
 
 let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,rid:'',teams:[],err:'',kicked:[],saved:null};
