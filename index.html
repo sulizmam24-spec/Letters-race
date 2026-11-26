@@ -97,7 +97,7 @@ function buildPool(){
 function poolStats(gu){if(!POOL)buildPool();let t=0,u=0;Object.values(POOL).forEach(a=>a.forEach(x=>{t++;if(gu&&gu[x[2]])u++}));return {t,left:t-u}}
 function markUsed(id){
  if(!DB||!S)return;S.gu=S.gu||{};
- const p=DB.doc('pool/used'),v=S.gu[id];
+ const p=DB.doc('pool/'+DB.uid),v=S.gu[id];
  try{p.update({[id]:v}).catch(()=>{p.set({[id]:v}).catch(()=>{})})}catch(e){}
 }
 function pick(){
@@ -267,7 +267,7 @@ let DB=null,unsub=[],TS={room:null,me:null,err:''},LB={session:0,rid:'',teams:[]
 const TEAMMODE=location.hash.indexOf('#team')===0;
 TS.rid=(location.hash.split('=')[1]||'').toUpperCase();
 const BX=h=>`<div class="box">${h}</div>`;
-function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,sk:S.sk||[],bs:S.bs||[],cr:S.cr||[],ft:S.ft||null,x2:!!S.x2,x2a:!!S.x2a,ux:S.ux||[],uc:S.uc||[],cg:!!S.chg,rq:S.req?S.req.h:'',lg:(S.lg||[]).slice(-3),bph:S.bph||'',bw:(S.bw==null?-1:S.bw),bk:S.bk||0,sl:S.sl||'',gd:S.gd?1:0,ts:Date.now()}).catch(()=>{})}catch(e){}}
+function push(){if(!DB||!S||!S.room)return;try{DB.doc('rooms/'+LB.rid).set({host:DB.uid||'',session:LB.session,exp:new Date(Date.now()+3*864e5),mode:'game',kicked:LB.kicked||[],uids:S.uids,names:S.names,sc:S.sc,pk:S.pk,cs:S.cs.map(r=>r.join('')),t:S.t,ph:S.ph,run:!!S.run,tm:S.tm,rv:!!S.rv,to:!!S.to,rs:S.rs||0,win:S.win==null?-1:S.win,l:S.l===null?-1:S.l,d:S.d===null?-1:S.d,ok:!!S.ok,end:!!S.end,sk:S.sk||[],bs:S.bs||[],cr:S.cr||[],ft:S.ft||null,x2:!!S.x2,x2a:!!S.x2a,ux:S.ux||[],uc:S.uc||[],cg:!!S.chg,rq:S.req?S.req.h:'',lg:(S.lg||[]).slice(-3),bph:S.bph||'',bw:(S.bw==null?-1:S.bw),bk:S.bk||0,sl:S.sl||'',gd:S.gd?1:0,ts:Date.now()}).catch(()=>{})}catch(e){}}
 function setup(){
  clearInterval(T);if(S)clearInterval(S.pp);clearInterval(LB.poll);S=null;LB={session:0,teams:[],err:'',kicked:[],saved:null};
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];
@@ -278,9 +278,9 @@ function hostOpen(tries){
  tries=tries||0;
  if(!DB||!DB.uid){LB.err='الاتصال غير جاهز، جرّب بعد لحظة';return hostLobby()}
  const ses=Date.now(),rid=newRid();
- DB.doc('rooms/'+rid).set({host:DB.uid,session:ses,mode:'lobby',kicked:[],ts:Date.now()}).then(()=>{
+ DB.doc('rooms/'+rid).set({host:DB.uid,session:ses,mode:'lobby',kicked:[],ts:Date.now(),exp:new Date(Date.now()+3*864e5)}).then(()=>{
   LB.rid=rid;LB.session=ses;LB.err='';LB.kicked=[];LB.saved=null;
-  DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:rid,session:0,kicked:[],st:'',ts:Date.now()}).catch(()=>{});
+  DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:rid,session:0,kicked:[],st:'',ts:Date.now(),exp:new Date(Date.now()+7*864e5)}).catch(()=>{});
   lbSub();loadGu();hostLobby();
  }).catch(e=>{if(tries<3)return hostOpen(tries+1);LB.err='ما قدرت أفتح التسجيل: '+(e&&e.code||'');hostLobby()});
 }
@@ -297,11 +297,11 @@ function lbApply(sn,force){
 }
 function lbSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(LB.poll);
- try{unsub.push(DB.collection('teams').where('room','==',LB.rid).onSnapshot(sn=>lbApply(sn),e=>{LB.err='تعذّر قراءة الفرق: '+(e&&e.code||'');if(!S)hostLobby()}))}catch(e){}
- LB.poll=setInterval(()=>{if(S||document.hidden)return;try{DB.collection('teams').where('room','==',LB.rid).get().then(sn=>lbApply(sn)).catch(()=>{})}catch(e){}},3000);
+ try{unsub.push(DB.collection('rooms/'+LB.rid+'/teams').onSnapshot(sn=>lbApply(sn),e=>{LB.err='تعذّر قراءة الفرق: '+(e&&e.code||'');if(!S)hostLobby()}))}catch(e){}
+ LB.poll=setInterval(()=>{if(S||document.hidden)return;try{DB.collection('rooms/'+LB.rid+'/teams').get().then(sn=>lbApply(sn)).catch(()=>{})}catch(e){}},3000);
 }
 function remBox(gu){if(!gu)return '';const p=poolStats(gu);return `<div class="v">📚 الأسئلة المتبقية: <b>${p.left}</b> من ${p.t}</div>`}
-function loadGu(){try{DB.doc('pool/used').get().then(sn=>{LB.gu=sn.exists?sn.data():{};if(!S)hostLobby()}).catch(()=>{})}catch(e){}}
+function loadGu(){try{DB.doc('pool/'+DB.uid).get().then(sn=>{LB.gu=sn.exists?sn.data():{};if(!S)hostLobby()}).catch(()=>{})}catch(e){}}
 function hostLobby(){
  const tm=LB.teams,all=tm.length>=2&&tm.every(t=>t.ready);
  let h=kickBox()+savedBox()+'<b>المنظم</b>'+remBox(LB.gu);
@@ -323,7 +323,7 @@ function hostStart(){
   S={names:tm.map(t=>t.name||'فريق'),mem:tm.map(t=>t.members||''),uids:tm.map(t=>t.id),sc:Array(n).fill(0),pk:Array(n).fill(0),cs:[...Array(n)].map(()=>Array(28).fill(0)),t:0,ph:'pick',l:null,d:null,ok:null,end:false,rv:false,to:false,tm:30,run:false,rs:0,room:'main',gu:gu||{},guEx:!!ex,used:[],sk:Array(n).fill(0),bs:Array(n).fill(0),cr:Array(n).fill(0),lg:[],x2:false,x2a:false,ux:Array(n).fill(0),uc:Array(n).fill(0),chg:false,req:null,ft:null,el:null,gl:pickGold(),glu:false,gd:false};
   gameSub();R();
  };
- try{DB.doc('pool/used').get().then(sn=>go(sn.exists?sn.data():{},sn.exists)).catch(()=>go({},false))}catch(e){go({},false)}
+ try{DB.doc('pool/'+DB.uid).get().then(sn=>go(sn.exists?sn.data():{},sn.exists)).catch(()=>go({},false))}catch(e){go({},false)}
 }
 const AV=['🦅','🐯','🦁','🐺'],CL=['#14b8a6','#f59e0b','#ec4899','#8b5cf6'];
 function burst(e){try{for(let i=0;i<26;i++){const d=document.createElement('span');d.className='cf';d.textContent=e;d.style.left=(Math.random()*100)+'vw';d.style.animationDelay=(Math.random()*.7)+'s';d.style.fontSize=(20+Math.random()*22)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),3400)}}catch(x){}}
@@ -369,7 +369,7 @@ function hostBar(){return S?'<div class="row"><button onclick="hostRefresh()">�
 function save(){
  if(!DB||!DB.uid||!S||!S.room)return;
  const o={};Object.keys(S).forEach(k=>{if(k!=='sq'&&k!=='ini'&&k!=='pp')o[k]=S[k]});
- try{DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:LB.rid,session:LB.session,kicked:LB.kicked||[],st:JSON.stringify(o),ts:Date.now()}).catch(()=>{})}catch(e){}
+ try{DB.doc('hostsave/'+DB.uid).set({host:DB.uid,room:LB.rid,session:LB.session,kicked:LB.kicked||[],st:JSON.stringify(o),ts:Date.now(),exp:new Date(Date.now()+7*864e5)}).catch(()=>{})}catch(e){}
 }
 function hostInit(){
  try{DB.doc('hostsave/'+DB.uid).get().then(sn=>{
@@ -387,7 +387,7 @@ function hostResume(){
  S=o;['sk','bs','cr','ux','uc'].forEach(k=>{if(!S[k])S[k]=Array((S.names||[]).length).fill(0)});S.lg=S.lg||[];if(S.ph==='bell'){S.ph='res';S.run=false}LB.rid=sv.d.room||'';LB.session=sv.d.session;LB.kicked=sv.d.kicked||[];LB.saved=null;n=S.names.length;S.room='main';
  gameSub();
  if(S.ph==='q'&&S.run&&!S.rv&&!S.to&&S.tm>0)startTimer();
- try{DB.doc('pool/used').get().then(sn=>{if(sn.exists){S.gu=Object.assign({},S.gu||{},sn.data());S.guEx=true}}).catch(()=>{})}catch(e){}
+ try{DB.doc('pool/'+DB.uid).get().then(sn=>{if(sn.exists){S.gu=Object.assign({},S.gu||{},sn.data());S.guEx=true}}).catch(()=>{})}catch(e){}
  R();
 }
 function hostRefresh(){
@@ -409,10 +409,10 @@ function pickEv(i,sn){
 }
 function gameSub(){
  unsub.forEach(f=>{try{f()}catch(e){}});unsub=[];clearInterval(S.pp);S.sq=[];S.ini=[];
- S.uids.forEach((u,i)=>{try{unsub.push(DB.doc('picks/'+u).onSnapshot(sn=>pickEv(i,sn)))}catch(e){}});
+ S.uids.forEach((u,i)=>{try{unsub.push(DB.doc('rooms/'+LB.rid+'/picks/'+u).onSnapshot(sn=>pickEv(i,sn)))}catch(e){}});
  S.pp=setInterval(()=>{if(!S||document.hidden)return;S.pc=(S.pc||0)+1;
-  if(S.ph==='bell'&&S.bph==='win'){S.uids.forEach((u,i)=>{if(i===S.t||!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}});return}
-  if(S.pc%2)return;const i=S.t,u=S.uids[i];if(!u)return;try{DB.doc('picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}},1000);
+  if(S.ph==='bell'&&S.bph==='win'){S.uids.forEach((u,i)=>{if(i===S.t||!u)return;try{DB.doc('rooms/'+LB.rid+'/picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}});return}
+  if(S.pc%2)return;const i=S.t,u=S.uids[i];if(!u)return;try{DB.doc('rooms/'+LB.rid+'/picks/'+u).get().then(sn=>pickEv(i,sn)).catch(()=>{})}catch(e){}},1000);
 }
 const QR=(function(){
  const EXP=new Array(512),LOG=new Array(256);
@@ -507,12 +507,12 @@ function tvStart(){
  TV.rid=(location.hash.split('=')[1]||'').toUpperCase();
  if(!TV.rid){$('g').innerHTML=BX('<div class="v">📺 <b>شاشة العرض</b></div><input id="tvc" placeholder="رمز الغرفة (يظهر عند المنظم)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="tvCode()">ادخل</button></div>');return}
  try{TV.un.push(DB.doc('rooms/'+TV.rid).onSnapshot(sn=>{TV.room=sn.exists?sn.data():null;tvRender()},()=>{}))}catch(e){}
- try{TV.un.push(DB.collection('teams').where('room','==',TV.rid).onSnapshot(sn=>{TV.teams=sn.docs.map(d=>Object.assign({id:d.id},d.data()));tvRender()},()=>{}))}catch(e){}
+ try{TV.un.push(DB.collection('rooms/'+TV.rid+'/teams').onSnapshot(sn=>{TV.teams=sn.docs.map(d=>Object.assign({id:d.id},d.data()));tvRender()},()=>{}))}catch(e){}
  TV.poll=setInterval(()=>{
   if(document.hidden)return;
   try{
    DB.doc('rooms/'+TV.rid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TV.room)){TV.room=d;tvRender()}}).catch(()=>{});
-   if(!TV.room||TV.room.mode!=='game')DB.collection('teams').where('room','==',TV.rid).get().then(sn=>{const l=sn.docs.map(d=>Object.assign({id:d.id},d.data()));if(JSON.stringify(l)!==JSON.stringify(TV.teams)){TV.teams=l;tvRender()}}).catch(()=>{});
+   if(!TV.room||TV.room.mode!=='game')DB.collection('rooms/'+TV.rid+'/teams').get().then(sn=>{const l=sn.docs.map(d=>Object.assign({id:d.id},d.data()));if(JSON.stringify(l)!==JSON.stringify(TV.teams)){TV.teams=l;tvRender()}}).catch(()=>{});
   }catch(e){}
  },3000);
  tvRender();
@@ -573,12 +573,12 @@ function teamStart(){
  TS.un=TS.un||[];clearInterval(TS.poll);
  if(!TS.rid){$('g').innerHTML=BX('<div class="v">🕯️📚 <b>الانضمام لغرفة</b></div><input id="rcode" placeholder="رمز الغرفة (من المنظم)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamCode()">ادخل</button></div><small>أو افتح الرابط الذي أرسله لك المنظم.</small>');return}
  try{TS.un.push(DB.doc('rooms/'+TS.rid).onSnapshot(sn=>{TS.room=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
- try{TS.un.push(DB.doc('teams/'+DB.uid).onSnapshot(sn=>{TS.me=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
+ try{TS.un.push(DB.doc('rooms/'+TS.rid+'/teams/'+DB.uid).onSnapshot(sn=>{TS.me=sn.exists?sn.data():null;teamRender()},()=>{}))}catch(e){}
  TS.poll=setInterval(()=>{
   if(document.hidden)return;
   try{
    DB.doc('rooms/'+TS.rid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.room)){TS.room=d;teamRender()}}).catch(()=>{});
-   DB.doc('teams/'+DB.uid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.me)){TS.me=d;teamRender()}}).catch(()=>{});
+   DB.doc('rooms/'+TS.rid+'/teams/'+DB.uid).get().then(sn=>{const d=sn.exists?sn.data():null;if(JSON.stringify(d)!==JSON.stringify(TS.me)){TS.me=d;teamRender()}}).catch(()=>{});
   }catch(e){}
  },3000);
  teamRender();
@@ -593,7 +593,7 @@ function teamRender(){
  if(r.mode==='game')return teamPlay();
  if(!me||me.room!==TS.rid||me.session!==r.session){
   if(g.querySelector('#tn'))return;
-  g.innerHTML=BX('<div class="v">🕯️📚 <b>تسجيل فريق</b></div><input id="tn" placeholder="اسم المجموعة"><input id="tm2" placeholder="أسماء الأعضاء (بفاصلة)"><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamReg()">سجّل</button></div><small id="te"></small>');
+  g.innerHTML=BX('<div class="v">🕯️📚 <b>تسجيل فريق</b></div><input id="tn" placeholder="اسم المجموعة"><input id="tm2" placeholder="أسماء الأعضاء (بفاصلة)"><small>اختياري: يمكنكم كتابة أسماء مستعارة. تُحذف بيانات الغرفة بعد أيام قليلة.</small><div class="row"><button class="lv e" style="background:var(--pr)" onclick="teamReg()">سجّل</button></div><small id="te"></small>');
   return;
  }
  g.innerHTML=BX(`<div class="v"><b>${E(me.name||'')}</b></div><small>${E(me.members||'')}</small><div class="v">${me.ready?'✅ أنتم جاهزون — بانتظار بقية الفرق':'⏳ تم التسجيل — اضغطوا جاهز عندما تكونون مستعدين'}</div><div class="row"><button class="p" onclick="teamReady()" style="font-size:18px;padding:14px 26px">${me.ready?'إلغاء الجاهزية':'جاهز ✅'}</button></div>`);
@@ -601,9 +601,9 @@ function teamRender(){
 async function teamReg(){
  const nm=$('tn').value.trim(),mm=$('tm2').value.trim(),te=$('te');
  if(!nm){te.textContent='اكتب اسم المجموعة';return}
- try{await DB.doc('teams/'+DB.uid).set({room:TS.rid,session:TS.room.session,name:nm,members:mm,ready:false,ts:Date.now()})}catch(e){te.textContent='تعذّر التسجيل: '+(e&&e.code||'')}
+ try{await DB.doc('rooms/'+TS.rid+'/teams/'+DB.uid).set({room:TS.rid,session:TS.room.session,name:nm,members:mm,ready:false,ts:Date.now(),exp:new Date(Date.now()+3*864e5)})}catch(e){te.textContent='تعذّر التسجيل: '+(e&&e.code||'')}
 }
-function teamReady(){if(!TS.me)return;DB.doc('teams/'+DB.uid).update({ready:!TS.me.ready}).catch(()=>{})}
+function teamReady(){if(!TS.me)return;DB.doc('rooms/'+TS.rid+'/teams/'+DB.uid).update({ready:!TS.me.ready}).catch(()=>{})}
 function teamPlay(){
  const s=TS.room,g=$('g'),i=(s.uids||[]).indexOf(DB.uid);
  if(i<0){g.innerHTML=BX('اللعبة بدأت وفريقكم غير مسجّل فيها. انتظروا اللعبة القادمة.');TS.hasT=false;return}
@@ -670,10 +670,10 @@ function tbtns(s,bal,i){
 }
 async function tbell(){
  const r=TS.room;if(!r)return;TS.bp=r.rs;
- try{const st=(window.firebase&&firebase.firestore&&firebase.firestore.FieldValue)?firebase.firestore.FieldValue.serverTimestamp():null;await DB.doc('picks/'+DB.uid).set({kind:'bell',rd:r.rs,l:0,d:0,h:'',seq:Date.now(),st:st});vib([80]);TS.k='';teamPlay()}catch(e){TS.bp=null;TS.err='ما قدرت أرسل ضغطتكم';teamPlay()}
+ try{const st=(window.firebase&&firebase.firestore&&firebase.firestore.FieldValue)?firebase.firestore.FieldValue.serverTimestamp():null;await DB.doc('rooms/'+TS.rid+'/picks/'+DB.uid).set({kind:'bell',rd:r.rs,l:0,d:0,h:'',seq:Date.now(),st:st,exp:new Date(Date.now()+3*864e5)});vib([80]);TS.k='';teamPlay()}catch(e){TS.bp=null;TS.err='ما قدرت أرسل ضغطتكم';teamPlay()}
 }
 async function tpick(kind,l,d,h){
- try{await DB.doc('picks/'+DB.uid).set({kind,l:l===null?0:l,d:d||0,h:h||'',seq:Date.now()});TS.err='✔️ تم إرسال اختياركم…';teamPlay()}catch(e){TS.err='ما قدرت أرسل اختيارك؛ قولوا الحرف للمنظم.';teamPlay()}
+ try{await DB.doc('rooms/'+TS.rid+'/picks/'+DB.uid).set({kind,l:l===null?0:l,d:d||0,h:h||'',seq:Date.now(),exp:new Date(Date.now()+3*864e5)});TS.err='✔️ تم إرسال اختياركم…';teamPlay()}catch(e){TS.err='ما قدرت أرسل اختيارك؛ قولوا الحرف للمنظم.';teamPlay()}
 }
 BANK.forEach(x=>{const k=x.s+'|'+x.l+'|'+x.d;(BK[k]=BK[k]||[]).push([x.q,x.a])});
 (function(){
